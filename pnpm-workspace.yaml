@@ -4,3 +4,12 @@ packages:
   - packages/api-client
   - packages/domain-types
   - packages/ui-tokens
+
+# Build-script gates carried over from create-next-app (apps/web).
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
+
+minimumReleaseAgeExclude:
+  - '@tanstack/query-core@5.102.8'
+  - '@tanstack/react-query@5.102.8'
