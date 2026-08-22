@@ -1,0 +1,29 @@
+# .NET
+bin/
+obj/
+*.user
+artifacts/
+
+# JS/TS
+node_modules/
+apps/web/.next/
+apps/web/out/
+apps/mobile/.expo/
+dist/
+*.tsbuildinfo
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# tooling
+.coverage*
+TestResults/
+coverage/
+lcov.info
+
+# editors / OS
+.idea/
+.vscode/
+.DS_Store
