@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+/*
+ * Mintmark design system — Tailwind v4 CSS-first theme.
+ *
+ * The raw `--mm-*` values MIRROR packages/ui-tokens (palette) — that package
+ * is the single source of truth; keep these hexes in sync with
+ * `packages/ui-tokens/src/index.ts` when tokens change. Metallic accents are
+ * SEMANTIC (gold on gold, silver on silver), never decorative.
+ */
+
+:root,
+.dark {
+  color-scheme: dark;
+  --mm-base: #0e1116; /* page background */
+  --mm-surface: #161b22; /* cards, tables */
+  --mm-surface-raised: #1d232c;
+  --mm-border: #2a323d;
+  --mm-text: #e6e9ee;
+  --mm-text-muted: #9ba4b0;
+  --mm-gold: #c9a227;
+  --mm-gold-soft: #e3c55c;
+  --mm-silver: #b9c0c9;
+  --mm-platinum: #c8d0dc;
+  --mm-palladium: #9fb3c8;
+  --mm-positive: #3fb68b;
+  --mm-negative: #e5484d;
+  --mm-warning: #e0a32e;
+  --mm-focus: #7ab8ff;
+}
+
+.light {
+  color-scheme: light;
+  --mm-base: #f7f8fa;
+  --mm-surface: #ffffff;
+  --mm-surface-raised: #f0f2f5;
+  --mm-border: #d9dee5;
+  --mm-text: #1a2028;
+  --mm-text-muted: #5a6472;
+  --mm-gold: #8a6d14;
+  --mm-gold-soft: #a5841e;
+  --mm-silver: #6b7480;
+  --mm-platinum: #5d6b7c;
+  --mm-palladium: #4e6076;
+  --mm-positive: #187a57;
+  --mm-negative: #c22127;
+  --mm-warning: #9a6b00;
+  --mm-focus: #1d5fae;
+}
+
+@theme inline {
+  --color-base: var(--mm-base);
+  --color-surface: var(--mm-surface);
+  --color-surface-raised: var(--mm-surface-raised);
+  --color-border: var(--mm-border);
+  --color-ink: var(--mm-text);
+  --color-ink-muted: var(--mm-text-muted);
+  --color-gold: var(--mm-gold);
+  --color-gold-soft: var(--mm-gold-soft);
+  --color-silver: var(--mm-silver);
+  --color-platinum: var(--mm-platinum);
+  --color-palladium: var(--mm-palladium);
+  --color-positive: var(--mm-positive);
+  --color-negative: var(--mm-negative);
+  --color-warning: var(--mm-warning);
+  --color-focus: var(--mm-focus);
+
+  /* Headings: engraved-legend serif (Fraunces variable, via @fontsource-variable). */
+  --font-heading: var(--mm-font-heading);
+  /* Data/UI: legible sans (Inter variable, via @fontsource-variable). */
+  --font-body: var(--mm-font-body);
+
+  /* Radii from ui-tokens (sm .375rem, md .5rem, lg .75rem, full 9999px). */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+}
+
+:root {
+  --mm-font-heading: "Fraunces Variable", ui-serif, Georgia, "Times New Roman", serif;
+  --mm-font-body: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--mm-border);
+  }
+
+  body {
+    background-color: var(--mm-base);
+    color: var(--mm-text);
+    font-family: var(--mm-font-body);
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--mm-focus) 35%, transparent);
+  }
+}
+
+/* Tabular figures — every price, weight, and quantity aligns and never jitters. */
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/*
+ * Coin flip — CSS 3D flip on click/keyboard. Honors prefers-reduced-motion by
+ * crossfading between faces instead of rotating.
+ */
+.coin-flip {
+  perspective: 1200px;
+}
+
+.coin-flip-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 480ms cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.coin-flip-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.coin-flip-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.coin-flip-back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coin-flip-inner,
+  .coin-flip-inner.is-flipped {
+    transform: none;
+    transition: none;
+  }
+
+  .coin-flip-face,
+  .coin-flip-back {
+    transform: none;
+    transition: opacity 220ms ease;
+  }
+
+  .coin-flip-inner:not(.is-flipped) .coin-flip-back {
+    opacity: 0;
+  }
+
+  .coin-flip-inner.is-flipped > .coin-flip-face:not(.coin-flip-back) {
+    opacity: 0;
+  }
+}
