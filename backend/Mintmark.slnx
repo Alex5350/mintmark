@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Mintmark.Api/Mintmark.Api.csproj" />
+    <Project Path="src/Mintmark.Application/Mintmark.Application.csproj" />
+    <Project Path="src/Mintmark.Domain/Mintmark.Domain.csproj" />
+    <Project Path="src/Mintmark.Infrastructure/Mintmark.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Mintmark.Api.IntegrationTests/Mintmark.Api.IntegrationTests.csproj" />
+    <Project Path="tests/Mintmark.Application.Tests/Mintmark.Application.Tests.csproj" />
+    <Project Path="tests/Mintmark.Domain.Tests/Mintmark.Domain.Tests.csproj" />
+  </Folder>
+</Solution>
