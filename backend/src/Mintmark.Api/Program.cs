@@ -129,13 +129,10 @@ builder.Services.AddRateLimiter(options =>
     });
 });
 
-// OpenAPI document + Scalar UI (non-production only; export mode forces the
-// document on regardless of environment).
+// The document service registers unconditionally (cheap; needed by the
+// export mode and CI diff); SERVING it stays non-production-only below.
 var docsEnabled = !builder.Environment.IsProduction() || exportOpenApi;
-if (docsEnabled)
-{
-    _ = builder.Services.AddOpenApi();
-}
+_ = builder.Services.AddOpenApi();
 
 // OpenTelemetry: traces/metrics with OTLP export only when an endpoint is
 // configured (no vendor, no noisy local default).
@@ -157,9 +154,12 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
+// The document route maps unconditionally: MapOpenApi also registers the
+// IOpenApiDocumentProvider the export mode resolves. Scalar UI (human
+// surface) stays non-production-only.
+_ = app.MapOpenApi("/openapi/v1.json");
 if (docsEnabled)
 {
-    _ = app.MapOpenApi("/openapi/v1.json");
     _ = app.MapScalarApiReference("/docs");
 }
 
@@ -180,18 +180,24 @@ _ = app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
 
 if (exportOpenApi)
 {
-    // CI diff + client generation: write the document, then exit.
-    var provider = app.Services.GetRequiredService<IOpenApiDocumentProvider>();
-    var document = await provider.GetOpenApiDocumentAsync();
-
-    var target = FindDocsDirectory();
-    await using var stream = File.Create(Path.Combine(target, "openapi.json"));
-    await using var streamWriter = new StreamWriter(stream);
-    var writer = new OpenApiJsonWriter(streamWriter);
-    document.SerializeAs(Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_0, writer);
-    await streamWriter.FlushAsync();
-
-    Console.WriteLine($"OpenAPI document written to {Path.Combine(target, "openapi.json")}");
+    // CI diff + client generation: self-host briefly and capture the
+    // document from the mapped endpoint — the only surface guaranteed to
+    // match what clients actually see.
+    app.Urls.Add("http://127.0.0.1:5198");
+    await app.StartAsync();
+    try
+    {
+        using var http = new HttpClient();
+        await using var document = await http.GetStreamAsync("http://127.0.0.1:5198/openapi/v1.json");
+        var target = FindDocsDirectory();
+        await using var output = File.Create(Path.Combine(target, "openapi.json"));
+        await document.CopyToAsync(output);
+        Console.WriteLine($"OpenAPI document written to {Path.Combine(target, "openapi.json")}");
+    }
+    finally
+    {
+        await app.StopAsync();
+    }
     return;
 }
 
