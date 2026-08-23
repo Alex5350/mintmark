@@ -1,0 +1,17 @@
+{
+  "name": "@mintmark/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "generate": "openapi-typescript ../../docs/openapi.json -o src/schema.d.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0"
+  },
+  "peerDependencies": {
+    "openapi-fetch": "0.17.0"
+  }
+}

@@ -27,3 +27,6 @@ lcov.info
 .idea/
 .vscode/
 .DS_Store
+
+# The user-level global ignore excludes **/packages/* — this repo needs its workspace packages
+!packages/**
