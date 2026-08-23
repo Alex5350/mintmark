@@ -10,13 +10,19 @@
 |---|---|
 | ![Landing](docs/assets/07-landing-dark.png) | ![Dashboard](docs/assets/dashboard.png) |
 
-| Collection - gallery + dense table | Holding detail - provenance + coin photos |
+| Collection - gallery + dense table | Holding detail - provenance + rendered bullion |
 |---|---|
 | ![Collection](docs/assets/mintmark-web-collection.png) | ![Holding detail](docs/assets/mintmark-web-holding-detail.png) |
 
 | Prices - live charts + Au:Ag ratio | Identify - capture → candidates → confirm |
 |---|---|
 | ![Prices](docs/assets/mintmark-web-prices.png) | ![Identify](docs/assets/mintmark-web-identify.png) |
+
+Coin imagery in the app is **original rendered bullion art** - metallic
+sheen, reeded edges, generic legends, no protected mint designs -
+generated deterministically per catalog row so the retrieval pipeline works
+without photography; real reference photography drops into the same seed
+pipeline.
 
 Every number carries its provenance: the dashboard's +67.7% is computed
 server-side against the same live spot the ticker shows, and the holding
@@ -130,7 +136,7 @@ and how to obtain each key. Nothing real is committed.
 
 - API only: `just api` → http://localhost:5100, Scalar at `/docs`
 - Web only: `just web` (needs API for data; renders empty states without)
-- Mobile: `cd apps/mobile && pnpm expo start` (API base in app.json extras)
+- Mobile: `cd apps/mobile && pnpm expo start` - usage, offline behavior, and EAS build/submit in [apps/mobile/README.md](apps/mobile/README.md)
 - Tests: `just test-backend` · `just test-web` · single test: `dotnet test --filter "FullyQualifiedName~GoldenValuation"` · `pnpm -C apps/web test -- HoldingCard`
 
 ## Common problems

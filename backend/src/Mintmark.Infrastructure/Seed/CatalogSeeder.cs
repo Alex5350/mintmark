@@ -385,12 +385,13 @@ public sealed class CatalogSeeder(
             dbContext.CoinTypes.Add(coinType);
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            await SeedReferenceImagesAsync(coinType, obverseKey, reverseKey, cancellationToken);
+            await SeedReferenceImagesAsync(coinType, ParseMetal(row.Metal ?? "silver"), obverseKey, reverseKey, cancellationToken);
         }
     }
 
     private async Task SeedReferenceImagesAsync(
         CoinType coinType,
+        MetalKind metal,
         string obverseKey,
         string reverseKey,
         CancellationToken cancellationToken)
@@ -406,7 +407,7 @@ public sealed class CatalogSeeder(
                      (CoinSide.Reverse, reverseKey, false),
                  })
         {
-            var png = PlaceholderImageGenerator.Generate(coinType.Name, isObverse);
+            var png = BullionImageGenerator.Generate(coinType.Name, metal.ToString().ToLowerInvariant(), isObverse);
             var hash = PerceptualHasher.Hash(png);
             await imageStore.SaveAsync(key, png, "image/png", cancellationToken);
 

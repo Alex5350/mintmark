@@ -49,7 +49,15 @@ same change.
 - JSON columns use EF 10 complex types (legacy owned-entity JSON mapping is
   out).
 
-## Not yet verified
+## Mobile (verified at scaffold time, 2026-08-28)
 
-- Expo SDK 57 / React Native 0.86 exact patch line - verified at scaffold
-  time by the Expo CLI itself (recorded here once the mobile app exists).
+| Package | Version |
+|---|---|
+| expo (SDK 57) | 57.0.17 |
+| react-native | 0.86.3 |
+| react | 19.2.3 |
+| expo-router / secure-store / sqlite / local-authentication / image-picker | 57.0.17 / 57.0.2 / 57.0.2 / 57.0.2 / 57.0.14 |
+
+Runtime verification on physical devices/simulators is not possible in this
+environment - the scaffold is typecheck- and expo-doctor-clean (21/21);
+device testing is listed in docs/open-questions.md.
