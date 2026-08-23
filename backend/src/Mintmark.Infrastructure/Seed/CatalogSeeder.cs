@@ -148,6 +148,13 @@ public sealed class CatalogFile
         [JsonPropertyName("finishPrimary")]
         public string? FinishPrimary { get; set; }
 
+        /// <summary>Gets or sets the optional image slug: when files exist at
+        /// seed/images/{slug}-obverse.jpg and -reverse.jpg (freely licensed
+        /// photography, see seed/images/CREDITS.md), they are used instead of
+        /// the rendered bullion art.</summary>
+        [JsonPropertyName("imageSlug")]
+        public string? ImageSlug { get; set; }
+
         /// <summary>Gets or sets the spec source URL (required when specs are present).</summary>
         [JsonPropertyName("sourceUrl")]
         public string? SourceUrl { get; set; }
@@ -385,13 +392,14 @@ public sealed class CatalogSeeder(
             dbContext.CoinTypes.Add(coinType);
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            await SeedReferenceImagesAsync(coinType, ParseMetal(row.Metal ?? "silver"), obverseKey, reverseKey, cancellationToken);
+            await SeedReferenceImagesAsync(coinType, ParseMetal(row.Metal ?? "silver"), row.ImageSlug, obverseKey, reverseKey, cancellationToken);
         }
     }
 
     private async Task SeedReferenceImagesAsync(
         CoinType coinType,
         MetalKind metal,
+        string? imageSlug,
         string obverseKey,
         string reverseKey,
         CancellationToken cancellationToken)
@@ -407,7 +415,8 @@ public sealed class CatalogSeeder(
                      (CoinSide.Reverse, reverseKey, false),
                  })
         {
-            var png = BullionImageGenerator.Generate(coinType.Name, metal.ToString().ToLowerInvariant(), isObverse);
+            var png = TryReadLicensedImage(imageSlug, isObverse)
+                    ?? BullionImageGenerator.Generate(coinType.Name, metal.ToString().ToLowerInvariant(), isObverse);
             var hash = PerceptualHasher.Hash(png);
             await imageStore.SaveAsync(key, png, "image/png", cancellationToken);
 
@@ -478,6 +487,34 @@ public sealed class CatalogSeeder(
             .Select(c => char.IsLetterOrDigit(c) ? c : '-')
             .ToArray();
         return new string(chars).Trim('-');
+    }
+
+    /// <summary>Reads a licensed photograph from seed/images when one exists
+    /// for this slug and side; null falls back to rendered bullion art.</summary>
+    private static byte[]? TryReadLicensedImage(string? imageSlug, bool obverse)
+    {
+        if (string.IsNullOrWhiteSpace(imageSlug))
+        {
+            return null;
+        }
+
+        var side = obverse ? "obverse" : "reverse";
+        var candidates = new[] { ".jpg", ".jpeg", ".png" };
+        foreach (var ext in candidates)
+        {
+            var path = Path.Combine(
+                AppContext.BaseDirectory, "..", "..", "..", "..", "..", "seed", "images",
+                $"{imageSlug}-{side}{ext}");
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            var bytes = File.ReadAllBytes(path);
+            return bytes.Length > 1_000 ? bytes : null; // guard against error pages
+        }
+
+        return null;
     }
 
     private static MetalKind ParseMetal(string metal) => metal.Trim().ToLowerInvariant() switch

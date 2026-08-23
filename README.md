@@ -10,7 +10,7 @@
 |---|---|
 | ![Landing](docs/assets/07-landing-dark.png) | ![Dashboard](docs/assets/dashboard.png) |
 
-| Collection - gallery + dense table | Holding detail - provenance + rendered bullion |
+| Collection - gallery + dense table | Holding detail - provenance + real coin photography |
 |---|---|
 | ![Collection](docs/assets/mintmark-web-collection.png) | ![Holding detail](docs/assets/mintmark-web-holding-detail.png) |
 
@@ -18,11 +18,14 @@
 |---|---|
 | ![Prices](docs/assets/mintmark-web-prices.png) | ![Identify](docs/assets/mintmark-web-identify.png) |
 
-Coin imagery in the app is **original rendered bullion art** - metallic
-sheen, reeded edges, generic legends, no protected mint designs -
-generated deterministically per catalog row so the retrieval pipeline works
-without photography; real reference photography drops into the same seed
-pipeline.
+Coin imagery in the app is **real photography, freely licensed** - sourced
+from Wikimedia Commons and public-domain US Mint renders, every image's
+license verified (PD/CC0/CC-BY/CC-BY-SA; no NC/ND) with per-file
+attribution in
+[backend/seed/images/CREDITS.md](backend/seed/images/CREDITS.md). Rows
+without a freely-licensed photograph fall back to original rendered
+bullion art (metallic sheen, reeded edges, generic legends - no protected
+mint designs), so the retrieval pipeline always has imagery.
 
 Every number carries its provenance: the dashboard's +67.7% is computed
 server-side against the same live spot the ticker shows, and the holding
