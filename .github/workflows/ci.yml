@@ -1,0 +1,75 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: cache nuget
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: mintmark-nuget-${{ hashFiles('backend/Directory.Packages.props') }}
+      - run: dotnet restore
+      - run: dotnet build --no-restore
+      # Testcontainers needs Docker (present on ubuntu runners); the Six
+      # Labors license notice is the single tolerated warning.
+      - run: dotnet test --no-build --logger "console;verbosity=normal"
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        working-directory: .
+      - run: pnpm lint
+      - run: pnpm build
+
+  openapi-diff:
+    # The OpenAPI document is committed; regenerating and diffing makes
+    # breaking API changes visible in review.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: cache nuget
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: mintmark-nuget-${{ hashFiles('backend/Directory.Packages.props') }}
+      - run: dotnet restore
+      - run: dotnet build --no-restore
+      - name: regenerate openapi document
+        run: dotnet run --no-build --project src/Mintmark.Api -- --export-openapi
+      - name: fail on drift
+        run: |
+          git diff --exit-code -- docs/openapi.json || {
+            echo "::error::docs/openapi.json drifted — regenerate with 'just openapi' and commit the document so the change is reviewable"
+            exit 1
+          }
