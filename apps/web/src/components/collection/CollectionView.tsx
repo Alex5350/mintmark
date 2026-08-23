@@ -58,7 +58,7 @@ export function CollectionView() {
       <TabsContent value="gallery">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {holdingsQuery.data.map((holding) => (
-            <HoldingCard key={holding.holdingId} holding={holding} />
+            <HoldingCard key={holding.id} holding={holding} />
           ))}
         </div>
       </TabsContent>

@@ -1,6 +1,6 @@
 "use client";
 
-/** Holding detail: coin flip, valuation provenance, grading, purchase facts. */
+/** Holding detail: coin flip (presigned catalog images when cataloged), valuation provenance, purchase facts. */
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -12,6 +12,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buttonStyles } from "@/components/ui/button";
 import { formatMoney, formatNumber, formatTroyOz, formatUtcDate, troyOzToGrams } from "@/lib/format";
+import { itemFormLabel, metalLabel } from "@/lib/enums";
+import { presignedImageUrl } from "@/lib/images";
 
 function FactRow({ label, value }: { label: string; value: string }) {
   return (
@@ -26,6 +28,20 @@ export function HoldingDetail({ holdingId }: { holdingId: string }) {
   const holdingQuery = useQuery({
     queryKey: ["holdings", "detail", holdingId],
     queryFn: () => api.holdings.detail(holdingId),
+  });
+
+  const valuationQuery = useQuery({
+    queryKey: ["holdings", "valuation", holdingId],
+    queryFn: () => api.holdings.valuation(holdingId),
+    enabled: holdingQuery.isSuccess,
+    // Generic holdings 422 (no cataloged coin type → no AMW); network blips retry once.
+    retry: 1,
+  });
+
+  const coinTypeQuery = useQuery({
+    queryKey: ["catalog", "coinType", holdingQuery.data?.coinTypeId],
+    queryFn: () => api.catalog.coinType(holdingQuery.data?.coinTypeId as number),
+    enabled: holdingQuery.data?.coinTypeId != null,
   });
 
   if (holdingQuery.isPending) {
@@ -55,27 +71,21 @@ export function HoldingDetail({ holdingId }: { holdingId: string }) {
   }
 
   const holding = holdingQuery.data;
-  const coinType = holding.coinType;
-  const title = coinType ? `${coinType.seriesName} · ${coinType.year}` : holding.itemForm;
+  const coinType = coinTypeQuery.data?.detail;
+  const title = holding.displayName;
+  const form = itemFormLabel(holding.form);
+  const pricePerUnit = holding.effectivePurchasePricePerUnit;
 
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <h1 className="font-heading text-2xl font-semibold text-ink">{title}</h1>
-          {coinType ? (
-            <p className="text-sm text-ink-muted">
-              {[
-                coinType.mintMark,
-                coinType.finishPrimary,
-                coinType.finishAttributes.join(", ") || null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-          ) : (
-            <p className="text-sm text-ink-muted">Uncataloged {holding.itemForm.toLowerCase()}</p>
-          )}
+          <p className="text-sm text-ink-muted">
+            {coinType
+              ? [coinType.mintName, String(coinType.year)].filter(Boolean).join(" · ")
+              : `Uncataloged ${form.toLowerCase()}`}
+          </p>
         </div>
         <Link
           href="/collection"
@@ -90,16 +100,15 @@ export function HoldingDetail({ holdingId }: { holdingId: string }) {
           <CoinFlip
             label={title}
             size="lg"
-            // imageKeys are storage keys, not URLs — presigned URLs arrive with
-            // the generated client; placeholders show until then.
-            obverseSrc={null}
-            reverseSrc={null}
+            // Presigned catalog reference images when the holding is cataloged.
+            obverseSrc={presignedImageUrl(coinTypeQuery.data?.obverseImageUrl)}
+            reverseSrc={presignedImageUrl(coinTypeQuery.data?.reverseImageUrl)}
           />
-          {coinType ? (
-            <Card className="w-full max-w-xs">
-              <CardContent className="p-4">
-                <dl>
-                  <FactRow label="Metal" value={coinType.metal} />
+          <Card className="w-full max-w-xs">
+            <CardContent className="p-4">
+              <dl>
+                {coinType ? <FactRow label="Metal" value={metalLabel(coinType.metal)} /> : null}
+                {coinType ? (
                   <FactRow
                     label="Actual metal weight"
                     value={`${formatTroyOz(coinType.actualMetalWeightTroyOz)} (${formatNumber(
@@ -107,17 +116,17 @@ export function HoldingDetail({ holdingId }: { holdingId: string }) {
                       2,
                     )} g)`}
                   />
-                  <FactRow label="Quantity" value={String(holding.quantity)} />
-                  <FactRow label="Item form" value={holding.itemForm} />
-                </dl>
-              </CardContent>
-            </Card>
-          ) : null}
+                ) : null}
+                <FactRow label="Quantity" value={String(holding.effectiveQuantity)} />
+                <FactRow label="Item form" value={form} />
+              </dl>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="flex flex-col gap-6">
-          {holding.currentValuation ? (
-            <ValuationPanel valuation={holding.currentValuation} />
+          {valuationQuery.isSuccess ? (
+            <ValuationPanel valuation={valuationQuery.data} />
           ) : (
             <Card>
               <CardHeader>
@@ -126,14 +135,18 @@ export function HoldingDetail({ holdingId }: { holdingId: string }) {
               <CardContent>
                 <EmptyState
                   title="Not valued yet"
-                  description="Valuations compute against live spot once the price pipeline is serving."
+                  description={
+                    holding.coinTypeId == null
+                      ? "Valuation requires a cataloged coin type — generic holdings have no metal weight to melt."
+                      : "Valuation computes against live spot; retry in a moment."
+                  }
                   className="py-8"
                 />
               </CardContent>
             </Card>
           )}
 
-          <GradingPanel grading={holding.grading} />
+          <GradingPanel />
 
           <Card>
             <CardHeader>
@@ -141,27 +154,17 @@ export function HoldingDetail({ holdingId }: { holdingId: string }) {
             </CardHeader>
             <CardContent>
               <dl>
-                <FactRow label="Date" value={formatUtcDate(holding.purchaseDate)} />
-                <FactRow
-                  label="Price per unit"
-                  value={formatMoney(holding.purchasePricePerUnit)}
-                />
+                <FactRow label="Date" value={formatUtcDate(holding.purchasedAtUtc)} />
+                <FactRow label="Price per unit" value={formatMoney(pricePerUnit)} />
                 <FactRow
                   label="Total cost"
                   value={formatMoney({
-                    amount: holding.purchasePricePerUnit.amount * holding.quantity,
-                    currency: holding.purchasePricePerUnit.currency,
+                    amount: pricePerUnit.amount * holding.effectiveQuantity,
+                    currency: pricePerUnit.currency,
                   })}
                 />
-                <FactRow label="Dealer" value={holding.dealer ?? "—"} />
-                <FactRow label="Serial number" value={holding.serialNumber ?? "—"} />
-                <FactRow label="Storage" value={holding.storageLocation ?? "—"} />
+                <FactRow label="Revisions" value={String(holding.revisionCount)} />
               </dl>
-              {holding.notes ? (
-                <p className="mt-3 rounded-md bg-surface-raised/50 p-3 text-sm text-ink-muted">
-                  {holding.notes}
-                </p>
-              ) : null}
             </CardContent>
           </Card>
         </div>

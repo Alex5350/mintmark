@@ -40,14 +40,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     setPending(true);
     setError(null);
     try {
-      const result = isRegister
+      const tokens = isRegister
         ? await api.auth.register({
             email,
             password,
             displayName: displayName.trim() || undefined,
           })
         : await api.auth.login(email, password);
-      setTokens(result.tokens);
+      setTokens(tokens);
       router.push("/dashboard");
     } catch (err) {
       setError(describeError(err));

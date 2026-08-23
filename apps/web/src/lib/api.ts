@@ -1,30 +1,35 @@
 /**
- * Thin typed fetch client for the Mintmark API.
+ * Mintmark API access. The generated `@mintmark/api-client` (openapi-fetch
+ * over the committed OpenAPI doc) owns the transport — paths, parameters, and
+ * request bodies are typed from the schema; no hand-written fetch URLs here
+ * (ADR 0008). This module adds what the schema cannot express:
  *
- * TEMPORARY: the generated `@mintmark/api-client` replaces this module in a
- * later phase. Keep the exported function signatures stable (same names,
- * same args, same return DTOs) so the swap is mechanical.
- *
- * - Base URL from NEXT_PUBLIC_API_BASE_URL (default http://localhost:5100).
- * - JSON is camelCase; bodies are plain objects, FormData passes through.
- * - 401 → ONE refresh in flight (concurrent 401s queue on the same promise),
- *   then a single retry of the original request. Refresh failure logs out and
- *   redirects to /login.
+ * - Bearer Authorization headers from the in-memory auth store (not cookies).
+ * - 401 → ONE single-flight POST /api/v1/auth/refresh rotation (concurrent
+ *   401s share the promise), then a single retry of the original request.
+ *   Refresh failure clears the session and redirects to /login.
+ * - Cursor pagination for the holdings list.
+ * - Response typing: the OpenAPI doc types request bodies but not response
+ *   payloads, so `data` is cast to the DTO mirrors in lib/api-types.ts,
+ *   which were verified field-for-field against the live API.
  */
+import { createMintmarkClient } from "@mintmark/api-client";
 import { useAuthStore } from "@/lib/auth-store";
+import type { ChartRange } from "@/lib/api-types";
+import { chartMetalParam, type Metal } from "@/lib/enums";
 import type {
-  ChartRange,
+  AuthTokens,
   ChartSeries,
-  CoinTypeRef,
-  Holding,
-  HoldingCreateInput,
-  HoldingUpdateInput,
-  IdentificationJob,
-  Metal,
+  CoinTypeDetail,
+  HoldingDetail,
+  HoldingListItem,
+  HoldingListResponse,
+  HoldingValuation,
+  IdentificationStatusResponse,
+  IdentificationSubmitResult,
   PortfolioRollup,
+  RatioPoint,
   SpotQuote,
-  TokenPair,
-  User,
 } from "@/lib/api-types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5100";
@@ -40,35 +45,39 @@ export class ApiError extends Error {
   }
 }
 
-export interface AuthResult {
-  user: User;
-  tokens: TokenPair;
+const client = createMintmarkClient(BASE_URL);
+
+// ---------------------------------------------------------------------------
+// Request pipeline (auth header + single-flight refresh rotation)
+// ---------------------------------------------------------------------------
+
+/** Structural slice of openapi-fetch's result — payloads are schema-untyped. */
+interface OpenApiResult {
+  data?: unknown;
+  error?: unknown;
+  response: Response;
 }
 
-// ---------------------------------------------------------------------------
-// Core request pipeline
-// ---------------------------------------------------------------------------
+type Fetcher = (headers: Record<string, string>) => Promise<OpenApiResult>;
 
 /** One refresh promise shared by every concurrent 401 (single-flight). */
-let refreshInFlight: Promise<TokenPair> | null = null;
+let refreshInFlight: Promise<void> | null = null;
 
-async function doRefresh(): Promise<TokenPair> {
+async function rotateTokens(): Promise<void> {
   const { refreshToken } = useAuthStore.getState();
-  if (!refreshToken) throw new ApiError(401, "/auth/refresh");
-  const res = await fetch(`${BASE_URL}/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken }),
+  if (!refreshToken) throw new ApiError(401, "/api/v1/auth/refresh");
+  const { data, error, response } = await client.POST("/api/v1/auth/refresh", {
+    body: { refreshToken },
   });
-  if (!res.ok) throw new ApiError(res.status, "/auth/refresh");
-  const tokens = (await res.json()) as TokenPair;
-  useAuthStore.getState().setTokens(tokens);
-  return tokens;
+  if (error !== undefined || !response.ok) {
+    throw new ApiError(response.status, "/api/v1/auth/refresh");
+  }
+  useAuthStore.getState().setTokens(data as unknown as AuthTokens);
 }
 
 function forceLogout(): void {
   useAuthStore.getState().clear();
-  // Full-page redirect on purpose: the fetch layer lives outside React, so a
+  // Full-page redirect on purpose: the client lives outside React, so a
   // router hook is unavailable here and the whole app must re-render signed out.
   if (typeof window !== "undefined" && window.location.pathname !== "/login") {
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
@@ -77,59 +86,45 @@ function forceLogout(): void {
 }
 
 interface RequestOptions {
-  method?: string;
-  /** JSON body (omit for FormData). */
-  body?: unknown;
-  /** Attach Authorization header (default true). */
+  /** Attach the Authorization header (default true). */
   auth?: boolean;
-  /** Idempotency-Key header (holdings create — retried submits never duplicate). */
-  idempotencyKey?: string;
   /** Set when the original request is the post-refresh retry. */
   isRetry?: boolean;
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, auth = true, idempotencyKey, isRetry = false } = options;
+async function request<T>(fetcher: Fetcher, options: RequestOptions = {}): Promise<T> {
+  const { auth = true, isRetry = false } = options;
 
   const headers: Record<string, string> = {};
   if (auth) {
     const { accessToken } = useAuthStore.getState();
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   }
-  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
-  const isFormData = body instanceof FormData;
-  if (body !== undefined && !isFormData) headers["Content-Type"] = "application/json";
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
-  });
+  const { data, error, response } = await fetcher(headers);
 
-  if (res.status === 401 && auth && !isRetry) {
+  if (response.status === 401 && auth && !isRetry) {
     try {
-      refreshInFlight ??= doRefresh().finally(() => {
+      refreshInFlight ??= rotateTokens().finally(() => {
         refreshInFlight = null;
       });
       await refreshInFlight;
     } catch {
       forceLogout();
-      throw new ApiError(401, path);
+      throw new ApiError(401, response.url);
     }
-    return request<T>(path, { ...options, isRetry: true });
+    return request<T>(fetcher, { ...options, isRetry: true });
   }
 
-  if (!res.ok) {
-    throw new ApiError(res.status, path, await res.text().catch(() => undefined));
+  if (error !== undefined || !response.ok) {
+    throw new ApiError(
+      response.status,
+      response.url,
+      error === undefined ? undefined : JSON.stringify(error),
+    );
   }
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
-}
-
-function query(params: Record<string, string | undefined>): string {
-  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== "");
-  if (entries.length === 0) return "";
-  return `?${new URLSearchParams(entries.map(([k, v]) => [k, v as string])).toString()}`;
+  if (response.status === 204) return undefined as T;
+  return data as T;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,91 +133,136 @@ function query(params: Record<string, string | undefined>): string {
 
 export const api = {
   auth: {
-    register(input: { email: string; password: string; displayName?: string }): Promise<AuthResult> {
-      return request<AuthResult>("/auth/register", { method: "POST", body: input, auth: false });
+    register(input: { email: string; password: string; displayName?: string }): Promise<AuthTokens> {
+      return request<AuthTokens>(
+        (headers) =>
+          client.POST("/api/v1/auth/register", {
+            body: { email: input.email, password: input.password, displayName: input.displayName ?? null },
+            headers,
+          }),
+        { auth: false },
+      );
     },
-    login(email: string, password: string): Promise<AuthResult> {
-      return request<AuthResult>("/auth/login", {
-        method: "POST",
-        body: { email, password },
-        auth: false,
-      });
-    },
-    /** Manual refresh (the request pipeline also refreshes transparently). */
-    refresh(): Promise<TokenPair> {
-      return doRefresh();
+    login(email: string, password: string): Promise<AuthTokens> {
+      return request<AuthTokens>(
+        (headers) => client.POST("/api/v1/auth/login", { body: { email, password }, headers }),
+        { auth: false },
+      );
     },
     async logout(): Promise<void> {
+      const { refreshToken } = useAuthStore.getState();
       useAuthStore.getState().clear();
+      if (!refreshToken) return;
       // Best-effort server-side revocation; local state is cleared regardless.
-      await request<void>("/auth/logout", { method: "POST", isRetry: true }).catch(() => undefined);
+      await request<void>((headers) =>
+        client.POST("/api/v1/auth/logout", { body: { refreshToken }, headers }),
+      ).catch(() => undefined);
     },
   },
 
   holdings: {
-    list(): Promise<Holding[]> {
-      return request<Holding[]>("/holdings");
+    /** Cursor-paginated upstream — follows every page so callers see one list. */
+    async list(): Promise<HoldingListItem[]> {
+      const items: HoldingListItem[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await request<HoldingListResponse>((headers) =>
+          client.GET("/api/v1/holdings", { params: { query: { limit: 100, cursor } }, headers }),
+        );
+        items.push(...page.items);
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor);
+      return items;
     },
-    detail(holdingId: string): Promise<Holding> {
-      return request<Holding>(`/holdings/${holdingId}`);
+    detail(holdingId: string | number): Promise<HoldingDetail> {
+      return request<HoldingDetail>((headers) =>
+        client.GET("/api/v1/holdings/{id}", {
+          params: { path: { id: Number(holdingId) } },
+          headers,
+        }),
+      );
     },
-    /** Create carries an Idempotency-Key so retried submits never duplicate. */
-    create(input: HoldingCreateInput): Promise<Holding> {
-      return request<Holding>("/holdings", {
-        method: "POST",
-        body: input,
-        idempotencyKey: crypto.randomUUID(),
-      });
-    },
-    update(holdingId: string, input: HoldingUpdateInput): Promise<Holding> {
-      return request<Holding>(`/holdings/${holdingId}`, { method: "PUT", body: input });
-    },
-    remove(holdingId: string): Promise<void> {
-      return request<void>(`/holdings/${holdingId}`, { method: "DELETE" });
+    /** Explainable valuation. 422s for generic holdings (no cataloged coin type). */
+    valuation(holdingId: string | number): Promise<HoldingValuation> {
+      return request<HoldingValuation>((headers) =>
+        client.GET("/api/v1/holdings/{id}/valuation", {
+          params: { path: { id: Number(holdingId) } },
+          headers,
+        }),
+      );
     },
   },
 
   catalog: {
-    search(q: string): Promise<CoinTypeRef[]> {
-      return request<CoinTypeRef[]>(`/catalog/search${query({ q })}`);
+    /** Catalog row (with presigned reference images) — names for identification candidates. */
+    coinType(coinTypeId: number): Promise<CoinTypeDetail> {
+      return request<CoinTypeDetail>((headers) =>
+        client.GET("/api/v1/catalog/coin-types/{id}", {
+          params: { path: { id: coinTypeId } },
+          headers,
+        }),
+      );
     },
   },
 
   prices: {
     current(): Promise<SpotQuote[]> {
-      return request<SpotQuote[]>("/prices/current");
+      return request<SpotQuote[]>((headers) => client.GET("/api/v1/prices/current", { headers }));
     },
     chart(metal: Metal, range: ChartRange): Promise<ChartSeries> {
-      return request<ChartSeries>(`/prices/chart${query({ metal, range })}`);
+      return request<ChartSeries>((headers) =>
+        client.GET("/api/v1/prices/chart", {
+          params: { query: { metal: chartMetalParam(metal), range } },
+          headers,
+        }),
+      );
     },
     /** First-class derived series: gold spot ÷ silver spot. */
-    ratio(range: ChartRange): Promise<ChartSeries> {
-      return request<ChartSeries>(`/prices/chart/ratio${query({ range })}`);
+    ratio(range: ChartRange): Promise<RatioPoint[]> {
+      return request<RatioPoint[]>((headers) =>
+        client.GET("/api/v1/prices/ratio", { params: { query: { range } }, headers }),
+      );
     },
   },
 
   portfolio: {
     rollup(): Promise<PortfolioRollup> {
-      return request<PortfolioRollup>("/portfolio/rollup");
+      return request<PortfolioRollup>((headers) =>
+        client.GET("/api/v1/portfolio/rollup", { headers }),
+      );
     },
   },
 
   identification: {
-    submit(input: { obverse: File; reverse: File; provider?: string }): Promise<{ jobId: string }> {
+    /** Multipart obverse + reverse; the API binds by part name. 202 → { jobId, deduplicated }. */
+    submit(input: { obverse: File; reverse: File }): Promise<IdentificationSubmitResult> {
       const form = new FormData();
       form.append("obverse", input.obverse);
       form.append("reverse", input.reverse);
-      if (input.provider) form.append("provider", input.provider);
-      return request<{ jobId: string }>("/identification/jobs", { method: "POST", body: form });
+      return request<IdentificationSubmitResult>((headers) =>
+        client.POST("/api/v1/identification/submit", {
+          body: form as unknown as { files: string[] },
+          headers,
+        }),
+      );
     },
-    status(jobId: string): Promise<IdentificationJob> {
-      return request<IdentificationJob>(`/identification/jobs/${jobId}`);
+    status(jobId: number): Promise<IdentificationStatusResponse> {
+      return request<IdentificationStatusResponse>((headers) =>
+        client.GET("/api/v1/identification/{jobId}/status", {
+          params: { path: { jobId } },
+          headers,
+        }),
+      );
     },
-    confirm(jobId: string, coinTypeId: string): Promise<IdentificationJob> {
-      return request<IdentificationJob>(`/identification/jobs/${jobId}/confirm`, {
-        method: "POST",
-        body: { coinTypeId },
-      });
+    /** Records the decision; 204 No Content — refetch status to see it applied. */
+    confirm(jobId: number, coinTypeId: number): Promise<void> {
+      return request<void>((headers) =>
+        client.POST("/api/v1/identification/{jobId}/confirm", {
+          params: { path: { jobId } },
+          body: { coinTypeId },
+          headers,
+        }),
+      );
     },
   },
 } as const;

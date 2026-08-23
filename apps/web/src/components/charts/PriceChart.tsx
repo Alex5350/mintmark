@@ -1,9 +1,11 @@
 "use client";
 
 /**
- * Spot price chart: Recharts area series from server-downsampled points,
- * range selector (1D..MAX), and the derived gold/silver ratio toggle.
- * The figure carries an aria-label summarizing trend + last price.
+ * Spot price chart: Recharts area series from server-downsampled daily
+ * closes, range selector (1D..MAX), and the derived gold/silver ratio toggle.
+ * The API serves chart points as {date, close} and ratio points as
+ * {date, ratio}; both normalize to {t, price} for the time axis. The figure
+ * carries an aria-label summarizing trend + last price.
  */
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -17,15 +19,15 @@ import {
   YAxis,
 } from "recharts";
 import { api } from "@/lib/api";
-import type { ChartPoint, ChartRange, ChartSeries, Metal } from "@/lib/api-types";
+import type { ChartRange, ChartSeries, RatioPoint } from "@/lib/api-types";
+import { downsampleLabel, type Metal } from "@/lib/enums";
 import { formatAxisNumber, formatChartTick } from "@/lib/format";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 
-const RANGES: readonly ChartRange[] = ["1D", "1W", "1M", "3M", "1Y", "5Y", "MAX"] as const;
+const RANGES: readonly ChartRange[] = ["1D", "1W", "1M", "3M", "6M", "1Y", "5Y", "MAX"] as const;
 
 const METAL_STROKE: Record<Metal, string> = {
   Gold: "var(--mm-gold)",
@@ -34,10 +36,25 @@ const METAL_STROKE: Record<Metal, string> = {
   Palladium: "var(--mm-palladium)",
 };
 
-const DOWNSAMPLE_LABEL = {
-  lttb: "LTTB downsampled",
-  bucketedAverage: "bucketed averages",
-} as const;
+/** Normalized chart point — epoch ms + decimal-as-number price. */
+interface ChartPoint {
+  t: number;
+  price: number;
+}
+
+function chartPoints(series: ChartSeries): ChartPoint[] {
+  return series.points.map((point) => ({
+    t: Date.parse(`${point.date}T00:00:00Z`),
+    price: point.close.amount,
+  }));
+}
+
+function ratioPoints(points: RatioPoint[]): ChartPoint[] {
+  return points.map((point) => ({
+    t: Date.parse(`${point.date}T00:00:00Z`),
+    price: point.ratio,
+  }));
+}
 
 function trendSummary(points: ChartPoint[]): { last: number | null; changePct: number | null } {
   if (points.length === 0) return { last: null, changePct: null };
@@ -69,9 +86,7 @@ function ChartTooltip({
   return (
     <div className="rounded-md border border-border bg-surface-raised px-3 py-2 text-xs shadow-lg">
       <div className="tnum font-semibold text-ink">
-        {isRatio
-          ? `${point.price.toFixed(1)} ratio`
-          : `${point.price.toFixed(2)} per troy oz`}
+        {isRatio ? `${point.price.toFixed(1)} ratio` : `${point.price.toFixed(2)} per troy oz`}
       </div>
       <div className="text-ink-muted">{formatChartTick(point.t, range)}</div>
     </div>
@@ -87,16 +102,25 @@ export function PriceChart({ metal = "Gold", className }: PriceChartProps) {
   const [range, setRange] = useState<ChartRange>("1M");
   const [showRatio, setShowRatio] = useState(false);
 
-  const seriesQuery = useQuery({
+  const seriesQuery = useQuery<ChartSeries | RatioPoint[]>({
     queryKey: ["chart", showRatio ? "ratio" : metal, range],
     queryFn: () => (showRatio ? api.prices.ratio(range) : api.prices.chart(metal, range)),
   });
 
-  const series: ChartSeries | undefined = seriesQuery.data;
+  const points = useMemo(
+    () =>
+      seriesQuery.data == null
+        ? []
+        : Array.isArray(seriesQuery.data)
+          ? ratioPoints(seriesQuery.data)
+          : chartPoints(seriesQuery.data),
+    [seriesQuery.data],
+  );
+
   const stroke = showRatio ? "var(--mm-focus)" : METAL_STROKE[metal];
   const subjectLabel = showRatio ? "Gold-to-silver ratio" : `${metal} spot price`;
 
-  const summary = useMemo(() => trendSummary(series?.points ?? []), [series?.points]);
+  const summary = useMemo(() => trendSummary(points), [points]);
 
   const ariaLabel = useMemo(() => {
     if (summary.last == null) return `${subjectLabel}, ${range} range: no data yet.`;
@@ -110,6 +134,9 @@ export function PriceChart({ metal = "Gold", className }: PriceChartProps) {
       : `${summary.last.toFixed(2)} per troy ounce`;
     return `${subjectLabel}, ${range} range: latest ${value}${trend}.`;
   }, [subjectLabel, range, summary, showRatio]);
+
+  const chartSeries = seriesQuery.data != null && !Array.isArray(seriesQuery.data) ? seriesQuery.data : null;
+  const downsample = downsampleLabel(chartSeries?.downsampleMethod);
 
   return (
     <figure className={cn("flex flex-col gap-3", className)}>
@@ -159,7 +186,7 @@ export function PriceChart({ metal = "Gold", className }: PriceChartProps) {
             </Button>
           }
         />
-      ) : (series?.points.length ?? 0) === 0 ? (
+      ) : points.length === 0 ? (
         <EmptyState
           title="No price history yet"
           description="Daily closes backfill on first API run — the chart fills in then."
@@ -171,7 +198,7 @@ export function PriceChart({ metal = "Gold", className }: PriceChartProps) {
           className="h-72 w-full md:h-96"
         >
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={series?.points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+            <AreaChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="spotFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={stroke} stopOpacity={0.28} />
@@ -217,18 +244,27 @@ export function PriceChart({ metal = "Gold", className }: PriceChartProps) {
         </div>
       )}
 
-      {series ? (
-        <figcaption className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
-          <span className="tnum">{series.points.length} points</span>
-          <span aria-hidden="true">·</span>
-          <span>{DOWNSAMPLE_LABEL[series.downsampleMethod]}</span>
-          {series.stale ? (
-            <Badge tone="warning" title="Series includes last-known-good prices from a provider outage.">
-              STALE
-            </Badge>
-          ) : null}
-        </figcaption>
-      ) : null}
+      <figcaption className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+        {seriesQuery.data != null ? (
+          <>
+            <span className="tnum">{points.length} points</span>
+            <span aria-hidden="true">·</span>
+            <span>
+              {chartSeries
+                ? `${chartSeries.range.start} → ${chartSeries.range.end}`
+                : showRatio
+                  ? "gold ÷ silver, daily"
+                  : null}
+            </span>
+            {downsample ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{downsample}</span>
+              </>
+            ) : null}
+          </>
+        ) : null}
+      </figcaption>
     </figure>
   );
 }

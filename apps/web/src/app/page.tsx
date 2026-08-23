@@ -55,10 +55,10 @@ export default function HomePage() {
       </section>
 
       <section className="rounded-lg border border-dashed border-border bg-surface/50 p-6 text-center">
-        <h2 className="font-heading text-lg font-semibold text-ink">The API is not live yet</h2>
+        <h2 className="font-heading text-lg font-semibold text-ink">Live from the Mintmark API</h2>
         <p className="mx-auto mt-1.5 max-w-xl text-sm text-ink-muted">
-          This is the design foundation. Every screen renders its real empty and loading states —
-          nothing here is mock data. Once the API ships, these pages fill in unchanged.
+          Every screen loads real data — holdings, valuations, and spot prices straight from the
+          API. When something is missing, you see an honest empty state; nothing here is mock data.
         </p>
       </section>
     </div>

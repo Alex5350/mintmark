@@ -1,6 +1,6 @@
 "use client";
 
-/** Most recent holdings — first five from the API, honest empty state. */
+/** Most recent holdings — first five in API order (newest first), honest empty state. */
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -13,8 +13,7 @@ export function RecentHoldings() {
   const holdingsQuery = useQuery({
     queryKey: ["holdings", "list"],
     queryFn: api.holdings.list,
-    select: (holdings) =>
-      [...holdings].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 5),
+    select: (holdings) => holdings.slice(0, 5),
   });
 
   if (holdingsQuery.isPending) {
@@ -58,7 +57,7 @@ export function RecentHoldings() {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {holdingsQuery.data.map((holding) => (
-        <HoldingCard key={holding.holdingId} holding={holding} />
+        <HoldingCard key={holding.id} holding={holding} />
       ))}
     </div>
   );

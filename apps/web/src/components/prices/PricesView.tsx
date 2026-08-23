@@ -2,7 +2,7 @@
 
 /** Prices page shell: metal switch + chart. */
 import { useState } from "react";
-import type { Metal } from "@/lib/api-types";
+import type { Metal } from "@/lib/enums";
 import { PriceChart } from "@/components/charts/PriceChart";
 import { Button } from "@/components/ui/button";
 

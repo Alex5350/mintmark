@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from "react";
 import { metalAccent } from "@mintmark/ui-tokens";
-import type { Metal as ApiMetal } from "@/lib/api-types";
+import type { Metal } from "@/lib/enums";
 import { cn } from "@/lib/cn";
 
 export type BadgeTone =
@@ -43,7 +43,7 @@ export function Badge({ tone = "neutral", className, ...props }: BadgeProps) {
 }
 
 /** Metal-accented badge — tone resolved through the ui-tokens `metalAccent` map. */
-export function MetalBadge({ metal, ...props }: { metal: ApiMetal } & BadgeProps) {
+export function MetalBadge({ metal, ...props }: { metal: Metal } & BadgeProps) {
   const tone = metalAccent[metal] as BadgeTone;
   return (
     <Badge tone={tone} {...props}>

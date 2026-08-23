@@ -1,8 +1,6 @@
-import type { CurrentValuation } from "@/lib/api-types";
+import type { HoldingValuation } from "@/lib/api-types";
 import { formatMoney, formatUtcDateTime } from "@/lib/format";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/cn";
 
 /**
  * Detail-view valuation: melt (silver accent) and collectible (gold accent)
@@ -11,12 +9,13 @@ import { cn } from "@/lib/cn";
  * premium factors; valuations stay explainable forever.
  */
 export interface ValuationPanelProps {
-  valuation: CurrentValuation;
+  valuation: HoldingValuation;
   className?: string;
 }
 
 export function ValuationPanel({ valuation, className }: ValuationPanelProps) {
-  const { melt, collectible } = valuation;
+  const { melt, collectible, confidenceBand, premiumFactors, provenance, computedAtUtc } =
+    valuation;
 
   return (
     <Card className={className}>
@@ -34,24 +33,15 @@ export function ValuationPanel({ valuation, className }: ValuationPanelProps) {
               Melt
             </h4>
             <p className="tnum text-2xl font-semibold text-silver">
-              {formatMoney(melt.amount)}
+              {formatMoney(melt)}
             </p>
             <p className="mt-1 text-xs text-ink-muted">
-              Spot {formatMoney(melt.spot.price)}/oz · {melt.spot.provider} ·{" "}
-              {formatUtcDateTime(melt.spot.sourceTimestamp)}
+              Spot {formatMoney(provenance.spotPricePerTroyOunce)}/oz · {provenance.source} ·{" "}
+              {formatUtcDateTime(provenance.sourceTimestampUtc)}
             </p>
-            {melt.spot.stale ? (
-              <Badge
-                tone="warning"
-                className="mt-1"
-                title="Provider outage — valued against the last known good spot."
-              >
-                STALE
-              </Badge>
-            ) : null}
           </section>
 
-          {/* Collectible — gold accent, confidence band + method version */}
+          {/* Collectible — gold accent, confidence band + method */}
           <section
             aria-labelledby="valuation-collectible"
             className="rounded-md border border-border border-l-2 border-l-gold bg-surface-raised/50 p-3"
@@ -63,39 +53,34 @@ export function ValuationPanel({ valuation, className }: ValuationPanelProps) {
               Collectible
             </h4>
             <p className="tnum text-2xl font-semibold text-gold">
-              {formatMoney(collectible.amount)}
+              {formatMoney(collectible)}
             </p>
             <p className="tnum mt-1 text-xs text-ink-muted">
-              Confidence{" "}
-              {formatMoney({ amount: collectible.confidenceLow, currency: collectible.amount.currency }, 0)}–
-              {formatMoney({ amount: collectible.confidenceHigh, currency: collectible.amount.currency }, 0)}{" "}
-              · method v{collectible.methodVersion}
+              Confidence {formatMoney(confidenceBand.lowValue, 0)}–
+              {formatMoney(confidenceBand.highValue, 0)} · {provenance.method} v
+              {provenance.methodVersion}
             </p>
           </section>
         </div>
 
         <details className="group rounded-md border border-border">
           <summary
-            className={cn(
-              "cursor-pointer select-none rounded-md px-3 py-2 text-sm font-medium text-ink-muted transition-colors",
-              "hover:bg-surface-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
-            )}
+            className="cursor-pointer select-none rounded-md px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             How was this calculated?
           </summary>
           <div className="border-t border-border px-3 py-3">
             <p className="mb-2 text-xs text-ink-muted">
-              Melt = actual metal weight × quantity × spot. Collectible = melt × premium factors
-              (method v{collectible.methodVersion}):
+              Collectible = melt × premium factors ({provenance.method} v{provenance.methodVersion}):
             </p>
-            {collectible.premiumFactors.length === 0 ? (
+            {premiumFactors.length === 0 ? (
               <p className="text-sm text-ink-muted">No premium factors applied.</p>
             ) : (
               <dl className="flex flex-col gap-2">
-                {collectible.premiumFactors.map((factor) => (
-                  <div key={factor.name} className="flex flex-col gap-0.5 border-l-2 border-border pl-3">
+                {premiumFactors.map((factor) => (
+                  <div key={factor.factorName} className="flex flex-col gap-0.5 border-l-2 border-border pl-3">
                     <div className="flex items-baseline justify-between gap-2">
-                      <dt className="text-sm font-medium text-ink">{factor.name}</dt>
+                      <dt className="text-sm font-medium text-ink">{factor.factorName}</dt>
                       <dd className="tnum text-sm font-semibold text-gold">
                         ×{factor.multiplier.toFixed(2)}
                       </dd>
@@ -105,6 +90,9 @@ export function ValuationPanel({ valuation, className }: ValuationPanelProps) {
                 ))}
               </dl>
             )}
+            <p className="mt-3 text-xs text-ink-muted">
+              Computed {formatUtcDateTime(computedAtUtc)}.
+            </p>
           </div>
         </details>
       </CardContent>

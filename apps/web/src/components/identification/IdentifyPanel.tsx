@@ -2,23 +2,20 @@
 
 /**
  * Identification upload/capture shell. Two-shot obverse+reverse capture,
- * submit → jobId, polling while pending/running, per-field confidence chips,
- * ranked candidates with confirm buttons, and an explicit "offline evaluator"
- * label when provider === 'offline'. No request ever blocks on a model call.
+ * submit → job id (202), polling while queued, per-field confidence chips,
+ * ranked candidates (names resolved from the catalog) with confirm buttons,
+ * and the provider label the run actually used. No request ever blocks on a
+ * model call.
  */
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api";
-import type {
-  IdentificationFieldName,
-  IdentificationProvider,
-  IdentifiedField,
-} from "@/lib/api-types";
+import type { IdentificationStatusResponse } from "@/lib/api-types";
+import { identificationStatusLabel, identificationStatusPolling } from "@/lib/enums";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, Select } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 
@@ -108,49 +105,106 @@ function confidenceTone(confidence: number): "positive" | "warning" | "negative"
   return "negative";
 }
 
-const FIELD_LABELS: Record<IdentificationFieldName, string> = {
+/** Per-field confidence keys the identification contract defines. */
+const FIELD_LABELS: Record<string, string> = {
   series: "Series",
   year: "Year",
-  mintMark: "Mint mark",
-  finishPrimary: "Finish",
+  mint: "Mint",
   metal: "Metal",
+  finish: "Finish",
+  edge: "Edge",
+  country: "Country",
+  fineness: "Fineness",
+  denomination: "Denomination",
+  sizeEstimateTroyOz: "Size (ozt)",
 };
 
-function FieldChip({ name, field }: { name: IdentificationFieldName; field: IdentifiedField }) {
+function fieldLabel(name: string): string {
+  return FIELD_LABELS[name] ?? name;
+}
+
+function FieldChip({ name, confidence }: { name: string; confidence: number }) {
   return (
     <div className="flex flex-col gap-0.5 rounded-md border border-border bg-surface-raised/50 px-2.5 py-1.5">
       <span className="text-[0.688rem] tracking-wide text-ink-muted uppercase">
-        {FIELD_LABELS[name]}
+        {fieldLabel(name)}
       </span>
-      <span className="text-sm font-medium text-ink">{field.value}</span>
-      <span className="tnum text-[0.688rem] text-ink-muted">
-        confidence{" "}
-        <span
-          className={cn(
-            "font-semibold",
-            confidenceTone(field.confidence) === "positive" && "text-positive",
-            confidenceTone(field.confidence) === "warning" && "text-warning",
-            confidenceTone(field.confidence) === "negative" && "text-negative",
-          )}
-        >
-          {Math.round(field.confidence * 100)}%
-        </span>
+      <span
+        className={cn(
+          "tnum text-sm font-semibold",
+          confidenceTone(confidence) === "positive" && "text-positive",
+          confidenceTone(confidence) === "warning" && "text-warning",
+          confidenceTone(confidence) === "negative" && "text-negative",
+        )}
+      >
+        {Math.round(confidence * 100)}%
       </span>
     </div>
   );
 }
 
-const PROVIDER_LABEL: Record<IdentificationProvider, string> = {
-  offline: "offline evaluator",
-  openai: "OpenAI vision",
-  gemini: "Gemini vision",
-};
+/** Candidates carry ids + scores only — names resolve from the catalog. */
+function CandidateRow({
+  coinTypeId,
+  score,
+  index,
+  confirmed,
+  confirmDisabled,
+  onConfirm,
+}: {
+  coinTypeId: number;
+  score: number;
+  index: number;
+  confirmed: boolean;
+  confirmDisabled: boolean;
+  onConfirm: (coinTypeId: number) => void;
+}) {
+  const coinTypeQuery = useQuery({
+    queryKey: ["catalog", "coinType", coinTypeId],
+    queryFn: () => api.catalog.coinType(coinTypeId),
+    staleTime: 5 * 60_000,
+  });
+
+  return (
+    <li
+      className={cn(
+        "flex items-center justify-between gap-3 rounded-md border border-border bg-surface-raised/50 px-3 py-2",
+        confirmed && "border-positive/60",
+      )}
+    >
+      <div className="flex min-w-0 items-baseline gap-3">
+        <span className="tnum text-xs text-ink-muted">#{index + 1}</span>
+        <span className="truncate text-sm font-medium text-ink">
+          {coinTypeQuery.isPending ? (
+            <Skeleton className="h-4 w-44" />
+          ) : coinTypeQuery.isError ? (
+            <>Catalog type #{coinTypeId}</>
+          ) : (
+            coinTypeQuery.data.detail.name
+          )}
+        </span>
+        <span className="tnum text-xs text-ink-muted">{Math.round(score * 100)}% match</span>
+      </div>
+      {confirmed ? (
+        <Badge tone="positive">confirmed</Badge>
+      ) : (
+        <Button
+          size="sm"
+          variant="goldAccent"
+          disabled={confirmDisabled}
+          onClick={() => onConfirm(coinTypeId)}
+        >
+          Confirm
+        </Button>
+      )}
+    </li>
+  );
+}
 
 export function IdentifyPanel({ className }: { className?: string }) {
   const [obverse, setObverse] = useShot();
   const [reverse, setReverse] = useShot();
-  const [provider, setProvider] = useState<IdentificationProvider>("offline");
-  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   const submit = useMutation({
@@ -158,28 +212,29 @@ export function IdentifyPanel({ className }: { className?: string }) {
       api.identification.submit({
         obverse: obverse?.file as File,
         reverse: reverse?.file as File,
-        provider,
       }),
     onSuccess: (result) => setJobId(result.jobId),
   });
 
   const jobQuery = useQuery({
     queryKey: ["identification", jobId],
-    queryFn: () => api.identification.status(jobId as string),
+    queryFn: () => api.identification.status(jobId as number),
     enabled: jobId !== null,
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      return status === "pending" || status === "running" ? 2000 : false;
-    },
+    refetchInterval: (query) =>
+      identificationStatusPolling(query.state.data?.status) ? 2000 : false,
   });
 
   const confirm = useMutation({
-    mutationFn: (coinTypeId: string) => api.identification.confirm(jobId as string, coinTypeId),
-    onSuccess: (job) => queryClient.setQueryData(["identification", jobId], job),
+    mutationFn: (coinTypeId: number) => api.identification.confirm(jobId as number, coinTypeId),
+    // Confirm answers 204 No Content — refetch the status to pick up the decision.
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["identification", jobId] });
+    },
   });
 
-  const job = jobQuery.data;
+  const job: IdentificationStatusResponse | undefined = jobQuery.data;
   const bothShots = obverse !== null && reverse !== null;
+  const statusDone = job != null && !identificationStatusPolling(job.status);
 
   return (
     <div className={cn("flex flex-col gap-4", className)}>
@@ -195,24 +250,12 @@ export function IdentifyPanel({ className }: { className?: string }) {
           <div className="flex flex-wrap items-start justify-center gap-8 sm:justify-start">
             <ShotSlot side="obverse" shot={obverse} onSelect={setObverse} />
             <ShotSlot side="reverse" shot={reverse} onSelect={setReverse} />
-            <div className="w-56">
-              <Field label="Evaluator" hint="Offline runs fully local — no image leaves the machine.">
-                <Select
-                  value={provider}
-                  onChange={(e) => setProvider(e.target.value as IdentificationProvider)}
-                >
-                  <option value="offline">offline evaluator</option>
-                  <option value="openai">OpenAI vision</option>
-                  <option value="gemini">Gemini vision</option>
-                </Select>
-              </Field>
-            </div>
           </div>
 
           {submit.isError ? (
             <p role="alert" className="text-sm text-negative">
               {submit.error instanceof ApiError
-                ? `Submission failed (HTTP ${submit.error.status}). Is the API running?`
+                ? `Submission failed (HTTP ${submit.error.status}). Both sides are required (10 KB–15 MB each).`
                 : "Submission failed — the API could not be reached."}
             </p>
           ) : null}
@@ -234,20 +277,20 @@ export function IdentifyPanel({ className }: { className?: string }) {
         </CardContent>
       </Card>
 
-      {jobId ? (
+      {jobId != null ? (
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-2">
             <CardTitle>Job {jobId}</CardTitle>
             <div className="flex items-center gap-2">
+              {job ? <Badge tone="neutral">{job.providerLabel}</Badge> : null}
               {job ? (
-                <Badge tone="neutral">{PROVIDER_LABEL[job.provider]}</Badge>
-              ) : null}
-              {job?.status === "pending" || job?.status === "running" ? (
-                <Badge tone="warning">{job?.status}</Badge>
-              ) : job?.status === "complete" ? (
-                <Badge tone="positive">complete</Badge>
-              ) : job?.status === "failed" ? (
-                <Badge tone="negative">failed</Badge>
+                <Badge
+                  tone={
+                    job.status === 2 ? "positive" : job.status === 3 ? "negative" : "warning"
+                  }
+                >
+                  {identificationStatusLabel(job.status)}
+                </Badge>
               ) : null}
             </div>
           </CardHeader>
@@ -263,23 +306,26 @@ export function IdentifyPanel({ className }: { className?: string }) {
               </p>
             ) : job ? (
               <>
-                {job.status === "failed" ? (
+                {job.status === 3 ? (
                   <p className="text-sm text-negative">
                     Identification failed. Re-shoot the photos and submit again.
                   </p>
                 ) : null}
 
-                {Object.entries(job.fields).length > 0 ? (
-                  <section aria-label="Detected fields">
+                {Object.keys(job.perFieldConfidences).length > 0 ? (
+                  <section aria-label="Per-field confidence">
+                    <h4 className="mb-2 text-xs font-medium tracking-wide text-ink-muted uppercase">
+                      Field confidences
+                    </h4>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-                      {(Object.entries(job.fields) as Array<[IdentificationFieldName, IdentifiedField]>).map(
-                        ([name, field]) => <FieldChip key={name} name={name} field={field} />,
-                      )}
+                      {Object.entries(job.perFieldConfidences).map(([name, confidence]) => (
+                        <FieldChip key={name} name={name} confidence={confidence} />
+                      ))}
                     </div>
                   </section>
-                ) : job.status !== "failed" ? (
+                ) : statusDone ? null : (
                   <p className="text-sm text-ink-muted">Waiting for field results…</p>
-                ) : null}
+                )}
 
                 {job.candidates.length > 0 ? (
                   <section aria-label="Candidate matches">
@@ -287,40 +333,19 @@ export function IdentifyPanel({ className }: { className?: string }) {
                       Candidates — confirm the right one
                     </h4>
                     <ul className="flex flex-col gap-2">
-                      {job.candidates.map((candidate, index) => {
-                        const confirmed = job.confirmedCoinTypeId === candidate.coinTypeId;
-                        return (
-                          <li
-                            key={candidate.coinTypeId}
-                            className={cn(
-                              "flex items-center justify-between gap-3 rounded-md border border-border bg-surface-raised/50 px-3 py-2",
-                              confirmed && "border-positive/60",
-                            )}
-                          >
-                            <div className="flex min-w-0 items-baseline gap-3">
-                              <span className="tnum text-xs text-ink-muted">#{index + 1}</span>
-                              <span className="truncate text-sm font-medium text-ink">
-                                {candidate.seriesName} · {candidate.year}
-                              </span>
-                              <span className="tnum text-xs text-ink-muted">
-                                {Math.round(candidate.score * 100)}% match
-                              </span>
-                            </div>
-                            {confirmed ? (
-                              <Badge tone="positive">confirmed</Badge>
-                            ) : job.confirmedCoinTypeId ? null : (
-                              <Button
-                                size="sm"
-                                variant="goldAccent"
-                                disabled={confirm.isPending}
-                                onClick={() => confirm.mutate(candidate.coinTypeId)}
-                              >
-                                Confirm
-                              </Button>
-                            )}
-                          </li>
-                        );
-                      })}
+                      {job.candidates.map((candidate, index) => (
+                        <CandidateRow
+                          key={candidate.coinTypeId}
+                          coinTypeId={candidate.coinTypeId}
+                          score={candidate.score}
+                          index={index}
+                          confirmed={job.confirmedCoinTypeId === candidate.coinTypeId}
+                          confirmDisabled={
+                            confirm.isPending || job.confirmedCoinTypeId !== null
+                          }
+                          onConfirm={(coinTypeId) => confirm.mutate(coinTypeId)}
+                        />
+                      ))}
                     </ul>
                     {confirm.isError ? (
                       <p role="alert" className="mt-2 text-xs text-negative">

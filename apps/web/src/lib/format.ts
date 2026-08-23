@@ -8,7 +8,8 @@ export function formatMoney(money: Money | null | undefined, maximumFractionDigi
     style: "currency",
     currency: money.currency,
     maximumFractionDigits,
-    minimumFractionDigits: 2,
+    // Intl throws a RangeError when minimum > maximum, so clamp together.
+    minimumFractionDigits: Math.min(2, maximumFractionDigits),
   }).format(money.amount);
 }
 

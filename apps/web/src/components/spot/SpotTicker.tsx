@@ -2,37 +2,39 @@
 
 /**
  * Header strip: live spot per metal (gold/silver), provider + timestamp, amber
- * STALE badge when quote.stale. Price ticks animate via a color transition
- * (no bounce). Honest unavailable/retry state — no fake prices.
+ * STALE badge when the quote is stale. Price ticks animate via a color
+ * transition (no bounce). Honest unavailable/retry state — no fake prices.
  */
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { SpotQuote } from "@/lib/api-types";
+import { knownMetal, type Metal } from "@/lib/enums";
 import { formatMoney, formatUtcTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 
-const TICKER_METALS = new Set(["Gold", "Silver"]);
+const TICKER_METALS = new Set<Metal>(["Gold", "Silver"]);
 
-function TickerCell({ quote }: { quote: SpotQuote }) {
+function TickerCell({ quote }: { quote: SpotQuote & { label: Metal } }) {
   const [direction, setDirection] = useState<"up" | "down" | null>(null);
   const previous = useRef<number | null>(null);
+  const price = quote.price;
 
   useEffect(() => {
     const prev = previous.current;
-    previous.current = quote.price.amount;
-    if (prev == null || prev === quote.price.amount) return;
-    setDirection(quote.price.amount > prev ? "up" : "down");
+    previous.current = price;
+    if (prev == null || prev === price) return;
+    setDirection(price > prev ? "up" : "down");
     const timer = setTimeout(() => setDirection(null), 1500);
     return () => clearTimeout(timer);
-  }, [quote.price.amount]);
+  }, [price]);
 
   return (
     <div className="flex items-baseline gap-2">
-      <span className="text-xs font-medium text-ink-muted">{quote.metal}</span>
+      <span className="text-xs font-medium text-ink-muted">{quote.label}</span>
       <span
         className={cn(
           "tnum text-sm font-semibold text-ink transition-colors duration-700",
@@ -40,12 +42,12 @@ function TickerCell({ quote }: { quote: SpotQuote }) {
           direction === "down" && "text-negative",
         )}
       >
-        {formatMoney(quote.price)}
+        {formatMoney({ amount: price, currency: quote.currency })}
       </span>
       <span className="hidden text-xs text-ink-muted sm:inline">
-        {quote.provider} · {formatUtcTime(quote.sourceTimestamp)}
+        {quote.provider} · {formatUtcTime(quote.sourceTimestampUtc)}
       </span>
-      {quote.stale ? (
+      {quote.isStale ? (
         <Badge
           tone="warning"
           title="Provider outage — showing the last known good price. Stale is never silent."
@@ -62,7 +64,14 @@ export function SpotTicker() {
     queryKey: ["spot", "current"],
     queryFn: api.prices.current,
     refetchInterval: 30_000,
-    select: (quotes: SpotQuote[]) => quotes.filter((q) => TICKER_METALS.has(q.metal)),
+    // Keep gold + silver with their resolved labels; other metals stay off the ticker.
+    select: (quotes: SpotQuote[]) =>
+      quotes
+        .map((quote) => ({ quote, label: knownMetal(quote.metal) }))
+        .filter(
+          (entry): entry is { quote: SpotQuote; label: Metal } =>
+            entry.label !== null && TICKER_METALS.has(entry.label),
+        ),
   });
 
   return (
@@ -91,7 +100,9 @@ export function SpotTicker() {
             </Button>
           </div>
         ) : (
-          quotesQuery.data.map((quote) => <TickerCell key={quote.metal} quote={quote} />)
+          quotesQuery.data.map(({ quote, label }) => (
+            <TickerCell key={label} quote={{ ...quote, label }} />
+          ))
         )}
       </div>
     </section>

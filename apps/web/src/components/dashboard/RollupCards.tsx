@@ -1,9 +1,9 @@
 "use client";
 
-/** Portfolio rollup cards: melt (silver), collectible (gold), cost basis, unrealized %. */
+/** Portfolio rollup cards: current value (gold), cost basis, unrealized %, holdings count. */
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { formatMoney, formatPct } from "@/lib/format";
+import { formatMoney, formatNumber, formatPct } from "@/lib/format";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,13 +46,8 @@ export function RollupCards() {
   const rollup = rollupQuery.data;
   const cards = [
     {
-      label: "Total melt",
-      value: formatMoney(rollup.totalMelt),
-      accent: "border-l-silver text-silver",
-    },
-    {
-      label: "Total collectible",
-      value: formatMoney(rollup.totalCollectible),
+      label: "Current value",
+      value: formatMoney(rollup.currentValue),
       accent: "border-l-gold text-gold",
     },
     {
@@ -67,6 +62,11 @@ export function RollupCards() {
         rollup.unrealizedPct >= 0
           ? "border-l-positive text-positive"
           : "border-l-negative text-negative",
+    },
+    {
+      label: "Holdings",
+      value: formatNumber(rollup.holdingCount, 0),
+      accent: "border-l-silver text-silver",
     },
   ] as const;
 
