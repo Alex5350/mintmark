@@ -4,6 +4,24 @@
 
 <p align="center"><img src="docs/assets/dashboard.png" alt="Mintmark dashboard: spot ticker, portfolio rollup, collection" width="880"></p>
 
+## The product in screenshots
+
+| Landing | Dashboard - live rollup |
+|---|---|
+| ![Landing](docs/assets/07-landing-dark.png) | ![Dashboard](docs/assets/dashboard.png) |
+
+| Collection - gallery + dense table | Holding detail - provenance + coin photos |
+|---|---|
+| ![Collection](docs/assets/mintmark-web-collection.png) | ![Holding detail](docs/assets/mintmark-web-holding-detail.png) |
+
+| Prices - live charts + Au:Ag ratio | Identify - capture → candidates → confirm |
+|---|---|
+| ![Prices](docs/assets/mintmark-web-prices.png) | ![Identify](docs/assets/mintmark-web-identify.png) |
+
+Every number carries its provenance: the dashboard's +67.7% is computed
+server-side against the same live spot the ticker shows, and the holding
+detail lists the exact premium factors behind the collectible estimate.
+
 ## What's implemented (honestly)
 
 | Feature | Status |
@@ -51,6 +69,18 @@ flowchart LR
 ```
 
 Full document: [docs/architecture.md](docs/architecture.md) · decisions: [docs/adr/](docs/adr/) (10 ADRs).
+
+Animated system and identification flows (rendered with
+[FlowInk](https://github.com/Alex5350/flowink), CSS-only animation,
+GitHub-safe):
+
+<p align="center">
+  <img src="docs/assets/architecture.svg" alt="Mintmark architecture: web and mobile clients over one ASP.NET Core API, PostgreSQL 18 with pgvector, S3-compatible storage, spot providers with failover, and the vision pipeline" width="860">
+</p>
+
+<p align="center">
+  <img src="docs/assets/identification.svg" alt="Mintmark identification pipeline: capture gates, preprocess + perceptual hash, vision contract, hybrid retrieval, user confirmation, append-only audit" width="860">
+</p>
 
 ## Tech stack (exact, verified - [docs/versions.md](docs/versions.md))
 

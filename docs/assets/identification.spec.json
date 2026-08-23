@@ -1,0 +1,71 @@
+{
+  "title": "Mintmark: identification pipeline",
+  "subtitle": "The model proposes; the catalog and the user dispose",
+  "width": 1440,
+  "height": 760,
+  "theme": "dark",
+  "chip": "append-only audit · advisory authenticity only",
+  "nodes": [
+    {
+      "id": "capture",
+      "label": "Capture",
+      "lines": ["obverse + reverse required", "glare · focus gates", "EXIF stripped twice"],
+      "x": 40,
+      "y": 280,
+      "pulse": true
+    },
+    {
+      "id": "preprocess",
+      "label": "Preprocess",
+      "lines": ["crop · normalize · 512px", "perceptual hash"],
+      "x": 320,
+      "y": 280
+    },
+    {
+      "id": "vision",
+      "label": "Vision contract",
+      "lines": ["value + confidence + evidence", "null beats guessing", "finish cues in prompt v1"],
+      "x": 600,
+      "y": 280,
+      "pulse": true
+    },
+    {
+      "id": "retrieval",
+      "label": "Hybrid retrieval",
+      "lines": ["pHash hamming", "pgvector cosine", "trigram + structured filters"],
+      "x": 890,
+      "y": 280
+    },
+    {
+      "id": "confirm",
+      "label": "User confirms",
+      "lines": ["top-5 candidates, scored", "confirmation = training signal"],
+      "x": 1170,
+      "y": 280,
+      "pulse": true
+    },
+    {
+      "id": "audit",
+      "label": "Audit run",
+      "lines": ["model + prompt version", "raw response · confidences", "append-only, never rewritten"],
+      "x": 600,
+      "y": 580
+    },
+    {
+      "id": "advisory",
+      "label": "Authenticity advisory",
+      "lines": ["observed cues only", "never a genuine/fake verdict"],
+      "x": 950,
+      "y": 580
+    }
+  ],
+  "edges": [
+    { "from": "capture", "to": "preprocess", "label": "gated upload", "color": "sky", "packet": true },
+    { "from": "preprocess", "to": "vision", "label": "canonical images", "color": "sky", "packet": true },
+    { "from": "vision", "to": "retrieval", "label": "structured query", "color": "sky", "packet": true },
+    { "from": "retrieval", "to": "confirm", "label": "top-5 + scores", "color": "emerald", "packet": true },
+    { "from": "vision", "to": "audit", "label": "raw output logged", "color": "amber" },
+    { "from": "confirm", "to": "audit", "label": "decision written back", "color": "amber", "packet": true },
+    { "from": "audit", "to": "advisory", "label": "flags surfaced", "color": "rose" }
+  ]
+}

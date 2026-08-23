@@ -1,0 +1,77 @@
+{
+  "title": "Mintmark: one contract, three clients, grounded pipeline",
+  "subtitle": "Generated TS client everywhere; the model proposes, the catalog and the user dispose",
+  "width": 1440,
+  "height": 800,
+  "theme": "dark",
+  "chip": "OpenAPI committed · offline evaluator · live spot failover",
+  "nodes": [
+    {
+      "id": "web",
+      "label": "Next.js 16 web",
+      "lines": ["Server Components", "dashboard · collection · identify", "gallery + table · coin flip"],
+      "x": 60,
+      "y": 150
+    },
+    {
+      "id": "mobile",
+      "label": "Expo SDK 57 mobile",
+      "lines": ["guided two-shot capture", "offline queue · biometrics", "SecureStore tokens"],
+      "x": 60,
+      "y": 430,
+      "pulse": true
+    },
+    {
+      "id": "api",
+      "label": "ASP.NET Core API",
+      "lines": ["minimal APIs · /api/v1", "Argon2id + rotating refresh", "Problem Details · idempotency"],
+      "x": 470,
+      "y": 290,
+      "pulse": true
+    },
+    {
+      "id": "db",
+      "label": "PostgreSQL 18",
+      "lines": ["EF Core 10 · pgvector", "pg_trgm hybrid search", "row-level holding filters"],
+      "x": 880,
+      "y": 150
+    },
+    {
+      "id": "storage",
+      "label": "S3-compatible store",
+      "lines": ["MinIO local · presigned", "EXIF stripped · re-encoded"],
+      "x": 880,
+      "y": 430
+    },
+    {
+      "id": "prices",
+      "label": "Spot price providers",
+      "lines": ["metals.dev primary", "gold-api.com failover", "stale flagged, never silent"],
+      "x": 1230,
+      "y": 150
+    },
+    {
+      "id": "vision",
+      "label": "Vision identification",
+      "lines": ["hosted adapter OR", "deterministic offline", "evaluator (labeled)"],
+      "x": 1230,
+      "y": 430
+    },
+    {
+      "id": "jobs",
+      "label": "Quartz jobs",
+      "lines": ["budget-derived polling", "backfill · rollups"],
+      "x": 470,
+      "y": 620
+    }
+  ],
+  "edges": [
+    { "from": "web", "to": "api", "label": "generated client", "color": "sky", "packet": true },
+    { "from": "mobile", "to": "api", "label": "same client", "color": "sky", "packet": true },
+    { "from": "api", "to": "db", "label": "EF Core", "color": "emerald", "packet": true },
+    { "from": "api", "to": "storage", "label": "presign", "color": "emerald", "packet": true },
+    { "from": "jobs", "to": "prices", "label": "poll + failover", "color": "amber", "packet": true },
+    { "from": "jobs", "to": "vision", "label": "identify jobs", "color": "amber", "packet": true },
+    { "from": "db", "to": "prices", "label": "cached series", "color": "rose", "direction": "none" }
+  ]
+}

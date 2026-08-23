@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="760" viewBox="0 0 1440 760" role="img" aria-label="Mintmark: identification pipeline. The model proposes; the catalog and the user dispose. Animated flows: colored dashes move along request paths; node borders breathe.">
+  <title>Mintmark: identification pipeline</title>
+  <defs>
+    <pattern id="fi-dark-dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#1B2737"/>
+    </pattern>
+  </defs>
+  <style>
+    .fi-dark-node { fill: #0E1620; stroke: #22304A; stroke-width: 1.2; }
+    .fi-dark-edge { stroke: #1F2B3D; stroke-width: 1.5; fill: none; }
+    .fi-dark-pulse { animation: fi-dark-pulse 3s ease-in-out infinite; }
+    .fi-dark-flow-sky { stroke: #38BDF8; stroke-width: 2; fill: none; stroke-dasharray: 5 11; animation: fi-dark-dash-sky-f 1.5s linear infinite; }
+    .fi-dark-flow-sky-b { animation-name: fi-dark-dash-sky-b; }
+    .fi-dark-flow-emerald { stroke: #34D399; stroke-width: 2; fill: none; stroke-dasharray: 5 11; animation: fi-dark-dash-emerald-f 1.5s linear infinite; }
+    .fi-dark-flow-emerald-b { animation-name: fi-dark-dash-emerald-b; }
+    .fi-dark-flow-amber { stroke: #F59E0B; stroke-width: 2; fill: none; stroke-dasharray: 5 11; animation: fi-dark-dash-amber-f 1.5s linear infinite; }
+    .fi-dark-flow-amber-b { animation-name: fi-dark-dash-amber-b; }
+    .fi-dark-flow-rose { stroke: #F87171; stroke-width: 2; fill: none; stroke-dasharray: 5 11; animation: fi-dark-dash-rose-f 1.5s linear infinite; }
+    .fi-dark-flow-rose-b { animation-name: fi-dark-dash-rose-b; }
+    .fi-dark-packet { animation: fi-dark-ride 1.5s linear infinite; }
+    @keyframes fi-dark-pulse { 0%, 100% { stroke-opacity: 1; } 50% { stroke-opacity: .5; } }
+    @keyframes fi-dark-ride { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+    @keyframes fi-dark-dash-sky-f { to { stroke-dashoffset: -16; } }
+    @keyframes fi-dark-dash-sky-b { to { stroke-dashoffset: 16; } }
+    @keyframes fi-dark-dash-emerald-f { to { stroke-dashoffset: -16; } }
+    @keyframes fi-dark-dash-emerald-b { to { stroke-dashoffset: 16; } }
+    @keyframes fi-dark-dash-amber-f { to { stroke-dashoffset: -16; } }
+    @keyframes fi-dark-dash-amber-b { to { stroke-dashoffset: 16; } }
+    @keyframes fi-dark-dash-rose-f { to { stroke-dashoffset: -16; } }
+    @keyframes fi-dark-dash-rose-b { to { stroke-dashoffset: 16; } }
+    @media (prefers-reduced-motion: reduce) { .fi-dark-flow-sky, .fi-dark-flow-emerald, .fi-dark-flow-amber, .fi-dark-flow-rose { animation: none; } .fi-dark-pulse, .fi-dark-packet { animation: none; } }
+  </style>
+  <rect width="1440" height="760" fill="#0B1118" style="fill:#0B1118 !important"/>
+  <rect width="1440" height="760" fill="url(#fi-dark-dots)" opacity=".5" style="fill:url(#fi-dark-dots) !important"/>
+  <text x="40" y="46" style="font: 600 20px ui-sans-serif, system-ui, sans-serif !important; fill: #E2E8F0 !important" fill="#E2E8F0">Mintmark: identification pipeline</text>
+  <text x="40" y="68" style="font: 12px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #64748B !important" fill="#64748B">The model proposes; the catalog and the user dispose</text>
+  <rect x="1065.6" y="30" width="334.40000000000003" height="26" rx="13" fill="none" stroke="#38BDF8" stroke-opacity=".5" style="fill: none !important; stroke: #38BDF8 !important; stroke-opacity: .5 !important"/>
+  <text x="1232.8" y="47" text-anchor="middle" style="font: 10px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #38BDF8 !important" fill="#38BDF8">append-only audit · advisory authenticity only</text>
+  <path class="fi-dark-edge" d="M268,336 H320" fill="none" stroke="#1F2B3D" stroke-width="1.5" style="stroke: #1F2B3D !important; fill: none !important; stroke-width: 1.5 !important"/>
+  <path class="fi-dark-flow-sky" d="M268,336 H320" fill="none" stroke="#38BDF8" stroke-width="2" style="stroke: #38BDF8 !important; fill: none !important; stroke-width: 2 !important; stroke-dasharray: 5 11 !important"/>
+  <text x="294" y="328" text-anchor="middle" style="font: 10px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #38BDF8 !important" fill="#38BDF8">gated upload</text>
+  <circle class="fi-dark-packet" r="3.5" fill="#7DD3FC" style="offset-path: path('M268,336 H320'); fill: #7DD3FC !important"/>
+  <path class="fi-dark-edge" d="M533,336 H600" fill="none" stroke="#1F2B3D" stroke-width="1.5" style="stroke: #1F2B3D !important; fill: none !important; stroke-width: 1.5 !important"/>
+  <path class="fi-dark-flow-sky" d="M533,336 H600" fill="none" stroke="#38BDF8" stroke-width="2" style="stroke: #38BDF8 !important; fill: none !important; stroke-width: 2 !important; stroke-dasharray: 5 11 !important"/>
+  <text x="567" y="328" text-anchor="middle" style="font: 10px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #38BDF8 !important" fill="#38BDF8">canonical images</text>
+  <circle class="fi-dark-packet" r="3.5" fill="#7DD3FC" style="offset-path: path('M533,336 H600'); fill: #7DD3FC !important"/>
+  <path class="fi-dark-edge" d="M849,340 H890" fill="none" stroke="#1F2B3D" stroke-width="1.5" style="stroke: #1F2B3D !important; fill: none !important; stroke-width: 1.5 !important"/>
+  <path class="fi-dark-flow-sky" d="M849,340 H890" fill="none" stroke="#38BDF8" stroke-width="2" style="stroke: #38BDF8 !important; fill: none !important; stroke-width: 2 !important; stroke-dasharray: 5 11 !important"/>
+  <text x="870" y="332" text-anchor="middle" style="font: 10px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #38BDF8 !important" fill="#38BDF8">structured query</text>
+  <circle class="fi-dark-packet" r="3.5" fill="#7DD3FC" style="offset-path: path('M849,340 H890'); fill: #7DD3FC !important"/>
+  <path class="fi-dark-edge" d="M1132,336 H1170" fill="none" stroke="#1F2B3D" stroke-width="1.5" style="stroke: #1F2B3D !important; fill: none !important; stroke-width: 1.5 !important"/>
+  <path class="fi-dark-flow-emerald" d="M1132,336 H1170" fill="none" stroke="#34D399" stroke-width="2" style="stroke: #34D399 !important; fill: none !important; stroke-width: 2 !important; stroke-dasharray: 5 11 !important"/>
+  <text x="1151" y="328" text-anchor="middle" style="font: 10px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #34D399 !important" fill="#34D399">top-5 + scores</text>
+  <circle class="fi-dark-packet" r="3.5" fill="#7DD3FC" style="offset-path: path('M1132,336 H1170'); fill: #7DD3FC !important"/>
+  <path class="fi-dark-edge" d="M723,400 V580" fill="none" stroke="#1F2B3D" stroke-width="1.5" style="stroke: #1F2B3D !important; fill: none !important; stroke-width: 1.5 !important"/>
+  <path class="fi-dark-flow-amber" d="M723,400 V580" fill="none" stroke="#F59E0B" stroke-width="2" style="stroke: #F59E0B !important; fill: none !important; stroke-width: 2 !important; stroke-dasharray: 5 11 !important"/>
+  <text x="652" y="392" text-anchor="middle" style="font: 10px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #F59E0B !important" fill="#F59E0B">raw output logged</text>
+  <path class="fi-dark-edge" d="M842,590 C1006,590 1006,372 1170,372" fill="none" stroke="#1F2B3D" stroke-width="1.5" style="stroke: #1F2B3D !important; fill: none !important; stroke-width: 1.5 !important"/>
+  <path class="fi-dark-flow-amber" d="M842,590 C1006,590 1006,372 1170,372" fill="none" stroke="#F59E0B" stroke-width="2" style="stroke: #F59E0B !important; fill: none !important; stroke-width: 2 !important; stroke-dasharray: 5 11 !important"/>
+  <text x="1006" y="473" text-anchor="middle" style="font: 10px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #F59E0B !important" fill="#F59E0B">decision written back</text>
+  <circle class="fi-dark-packet" r="3.5" fill="#7DD3FC" style="offset-path: path('M842,590 C1006,590 1006,372 1170,372'); fill: #7DD3FC !important"/>
+  <path class="fi-dark-edge" d="M842,636 H950" fill="none" stroke="#1F2B3D" stroke-width="1.5" style="stroke: #1F2B3D !important; fill: none !important; stroke-width: 1.5 !important"/>
+  <path class="fi-dark-flow-rose" d="M842,636 H950" fill="none" stroke="#F87171" stroke-width="2" style="stroke: #F87171 !important; fill: none !important; stroke-width: 2 !important; stroke-dasharray: 5 11 !important"/>
+  <text x="896" y="628" text-anchor="middle" style="font: 10px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #F87171 !important" fill="#F87171">flags surfaced</text>
+  <rect class="fi-dark-node fi-dark-pulse" x="40" y="280" width="228" height="120" rx="10" fill="#0E1620" stroke="#22304A" style="fill: #0E1620 !important; stroke: #22304A !important; stroke-width: 1.2 !important"/>
+  <text x="60" y="306" style="font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace !important; letter-spacing: .5px !important; fill: #E2E8F0 !important" fill="#E2E8F0">Capture</text>
+  <text x="60" y="328" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">obverse + reverse required</text>
+  <text x="60" y="346" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">glare · focus gates</text>
+  <text x="60" y="364" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">EXIF stripped twice</text>
+  <rect class="fi-dark-node" x="320" y="280" width="213" height="102" rx="10" fill="#0E1620" stroke="#22304A" style="fill: #0E1620 !important; stroke: #22304A !important; stroke-width: 1.2 !important"/>
+  <text x="340" y="306" style="font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace !important; letter-spacing: .5px !important; fill: #E2E8F0 !important" fill="#E2E8F0">Preprocess</text>
+  <text x="340" y="328" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">crop · normalize · 512px</text>
+  <text x="340" y="346" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">perceptual hash</text>
+  <rect class="fi-dark-node fi-dark-pulse" x="600" y="280" width="249" height="120" rx="10" fill="#0E1620" stroke="#22304A" style="fill: #0E1620 !important; stroke: #22304A !important; stroke-width: 1.2 !important"/>
+  <text x="620" y="306" style="font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace !important; letter-spacing: .5px !important; fill: #E2E8F0 !important" fill="#E2E8F0">Vision contract</text>
+  <text x="620" y="328" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">value + confidence + evidence</text>
+  <text x="620" y="346" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">null beats guessing</text>
+  <text x="620" y="364" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">finish cues in prompt v1</text>
+  <rect class="fi-dark-node" x="890" y="280" width="242" height="120" rx="10" fill="#0E1620" stroke="#22304A" style="fill: #0E1620 !important; stroke: #22304A !important; stroke-width: 1.2 !important"/>
+  <text x="910" y="306" style="font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace !important; letter-spacing: .5px !important; fill: #E2E8F0 !important" fill="#E2E8F0">Hybrid retrieval</text>
+  <text x="910" y="328" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">pHash hamming</text>
+  <text x="910" y="346" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">pgvector cosine</text>
+  <text x="910" y="364" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">trigram + structured filters</text>
+  <rect class="fi-dark-node fi-dark-pulse" x="1170" y="280" width="256" height="102" rx="10" fill="#0E1620" stroke="#22304A" style="fill: #0E1620 !important; stroke: #22304A !important; stroke-width: 1.2 !important"/>
+  <text x="1190" y="306" style="font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace !important; letter-spacing: .5px !important; fill: #E2E8F0 !important" fill="#E2E8F0">User confirms</text>
+  <text x="1190" y="328" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">top-5 candidates, scored</text>
+  <text x="1190" y="346" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">confirmation = training signal</text>
+  <rect class="fi-dark-node" x="600" y="580" width="242" height="120" rx="10" fill="#0E1620" stroke="#22304A" style="fill: #0E1620 !important; stroke: #22304A !important; stroke-width: 1.2 !important"/>
+  <text x="620" y="606" style="font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace !important; letter-spacing: .5px !important; fill: #E2E8F0 !important" fill="#E2E8F0">Audit run</text>
+  <text x="620" y="628" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">model + prompt version</text>
+  <text x="620" y="646" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">raw response · confidences</text>
+  <text x="620" y="664" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">append-only, never rewritten</text>
+  <rect class="fi-dark-node" x="950" y="580" width="242" height="102" rx="10" fill="#0E1620" stroke="#22304A" style="fill: #0E1620 !important; stroke: #22304A !important; stroke-width: 1.2 !important"/>
+  <text x="970" y="606" style="font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace !important; letter-spacing: .5px !important; fill: #E2E8F0 !important" fill="#E2E8F0">Authenticity advisory</text>
+  <text x="970" y="628" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">observed cues only</text>
+  <text x="970" y="646" style="font: 11px ui-monospace, SFMono-Regular, Menlo, monospace !important; fill: #94A3B8 !important" fill="#94A3B8">never a genuine/fake verdict</text>
+</svg>
