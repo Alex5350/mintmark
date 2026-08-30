@@ -1,24 +1,24 @@
 # Mintmark
 
-**A serious collector's tracker for gold and silver: catalog bullion, coins, and bars; photograph a coin and get grounded catalog identification with candidates and confidence; watch both melt and collectible value against live, source-attributed spot prices.** Built as a production-grade monorepo - ASP.NET Core minimal APIs on .NET 10, PostgreSQL 18 with pgvector, a Next.js 16 web client, and an Expo SDK 57 mobile client with guided two-shot coin capture.
+**A serious collector's tracker for gold and silver: catalog bullion, coins, and bars; photograph a coin and get grounded catalog identification with candidates and confidence; watch both melt and collectible value against live, source-attributed spot prices.** Built as a production-grade monorepo: ASP.NET Core minimal APIs on .NET 10, PostgreSQL 18 with pgvector, a Next.js 16 web client, and an Expo SDK 57 mobile client with guided two-shot coin capture.
 
 <p align="center"><img src="docs/assets/dashboard.png" alt="Mintmark dashboard: spot ticker, portfolio rollup, collection" width="880"></p>
 
 ## The product in screenshots
 
-| Landing | Dashboard - live rollup |
+| Landing | Dashboard: live rollup |
 |---|---|
 | ![Landing](docs/assets/07-landing-dark.png) | ![Dashboard](docs/assets/dashboard.png) |
 
-| Collection - gallery + dense table | Holding detail - provenance + real coin photography |
+| Collection: gallery + dense table | Holding detail: provenance + real coin photography |
 |---|---|
 | ![Collection](docs/assets/mintmark-web-collection.png) | ![Holding detail](docs/assets/mintmark-web-holding-detail.png) |
 
-| Prices - live charts + Au:Ag ratio | Identify - capture → candidates → confirm |
+| Prices: live charts + Au:Ag ratio | Identify: capture → candidates → confirm |
 |---|---|
 | ![Prices](docs/assets/mintmark-web-prices.png) | ![Identify](docs/assets/mintmark-web-identify.png) |
 
-The mobile client (Expo SDK 57), captured on a real iOS simulator run -
+The mobile client (Expo SDK 57), captured on a real iOS simulator run;
 guided two-shot capture, live portfolio rollup and per-holding valuation,
 biometric lock and durable offline queue:
 
@@ -34,13 +34,13 @@ biometric lock and durable offline queue:
 |---|---|
 | ![Mobile login](docs/assets/mintmark-mobile-login.png) | ![Mobile settings](docs/assets/mintmark-mobile-settings.png) |
 
-Coin imagery in the app is **real photography, freely licensed** - sourced
+Coin imagery in the app is **real photography, freely licensed**: sourced
 from Wikimedia Commons and public-domain US Mint renders, every image's
 license verified (PD/CC0/CC-BY/CC-BY-SA; no NC/ND) with per-file
 attribution in
 [backend/seed/images/CREDITS.md](backend/seed/images/CREDITS.md). Rows
 without a freely-licensed photograph fall back to original rendered
-bullion art (metallic sheen, reeded edges, generic legends - no protected
+bullion art (metallic sheen, reeded edges, generic legends; no protected
 mint designs), so the retrieval pipeline always has imagery.
 
 Every number carries its provenance: the dashboard's +67.7% is computed
@@ -59,8 +59,8 @@ detail lists the exact premium factors behind the collectible estimate.
 | Melt + rules-based collectible valuation with provenance | ✅ itemized premium factors, confidence bands, method versioning |
 | AI identification: capture → vision contract → hybrid retrieval → confirm | ✅ hosted adapters (OpenAI/Gemini) + labeled deterministic offline evaluator; append-only audit runs |
 | Web client: dashboard, gallery + table collection, coin flip, identify | ✅ dark-first, WCAG-checked, tabular numerals |
-| Mobile: guided capture, offline queue, biometric gate | ✅ scaffold-verified (typecheck + expo-doctor); **not device-tested** - see open questions |
-| Comparables-based valuation (Phase 2), learned model (Phase 3) | ❌ deliberately not built - ADR 0007 |
+| Mobile: guided capture, offline queue, biometric gate | ✅ scaffold-verified (typecheck + expo-doctor); **not device-tested** (see open questions) |
+| Comparables-based valuation (Phase 2), learned model (Phase 3) | ❌ deliberately not built (ADR 0007) |
 
 ## Architecture
 
@@ -93,7 +93,7 @@ flowchart LR
     Q -->|identification| V
 ```
 
-Full document: [docs/architecture.md](docs/architecture.md) · decisions: [docs/adr/](docs/adr/) (10 ADRs).
+Full document: [docs/architecture.md](docs/architecture.md) · decisions: [docs/adr/](docs/adr/) (9 ADRs).
 
 Animated system and identification flows (rendered with
 [FlowInk](https://github.com/Alex5350/flowink), CSS-only animation,
@@ -107,7 +107,7 @@ GitHub-safe):
   <img src="docs/assets/identification.svg" alt="Mintmark identification pipeline: capture gates, preprocess + perceptual hash, vision contract, hybrid retrieval, user confirmation, append-only audit" width="860">
 </p>
 
-## Tech stack (exact, verified - [docs/versions.md](docs/versions.md))
+## Tech stack (exact, verified; see [docs/versions.md](docs/versions.md))
 
 | Layer | Choice | Version |
 |---|---|---|
@@ -123,10 +123,10 @@ GitHub-safe):
 
 ## Prerequisites
 
-- Docker (any runtime: Docker Desktop, colima, OrbStack) - `docker ps` works
-- .NET SDK 10.0.400+ - `brew install dotnet-sdk` / [windows/linux downloads](https://dotnet.microsoft.com/download/dotnet/10.0)
-- Node 22 LTS + pnpm 11 - `brew install node && corepack enable`
-- (mobile only) Expo CLI + Xcode/Android toolchains - [Expo docs](https://docs.expo.dev/)
+- Docker (any runtime: Docker Desktop, colima, OrbStack); `docker ps` works
+- .NET SDK 10.0.400+: `brew install dotnet-sdk` / [windows/linux downloads](https://dotnet.microsoft.com/download/dotnet/10.0)
+- Node 22 LTS + pnpm 11: `brew install node && corepack enable`
+- (mobile only) Expo CLI + Xcode/Android toolchains: [Expo docs](https://docs.expo.dev/)
 
 ## Quickstart (clean machine, ~10 minutes)
 
@@ -142,31 +142,31 @@ just web                        # web on :3100
 ```
 
 Sign in as `demo@mintmark.local` / `mintmark-demo-2026`. Spot prices need a
-metals.dev key (free, 100 req/mo); **without keys everything else works** -
+metals.dev key (free, 100 req/mo); **without keys everything else works**:
 identification runs the labeled offline evaluator and prices seed from
 fixture history, flagged stale.
 
 ## Environment variables
 
-Every variable is documented in [.env.example](.env.example) - name, default,
+Every variable is documented in [.env.example](.env.example): name, default,
 and how to obtain each key. Nothing real is committed.
 
 ## Running pieces independently
 
 - API only: `just api` → http://localhost:5100, Scalar at `/docs`
 - Web only: `just web` (needs API for data; renders empty states without)
-- Mobile: `cd apps/mobile && pnpm expo start` - usage, offline behavior, and EAS build/submit in [apps/mobile/README.md](apps/mobile/README.md)
-- Tests: `just test-backend` · `just test-web` · single test: `dotnet test --filter "FullyQualifiedName~GoldenValuation"` · `pnpm -C apps/web test -- HoldingCard`
+- Mobile: `cd apps/mobile && pnpm expo start`; usage, offline behavior, and EAS build/submit in [apps/mobile/README.md](apps/mobile/README.md)
+- Tests: `just test-backend` · `just test-mobile` (typecheck) · single test: `dotnet test --filter "FullyQualifiedName~GoldenValuation"`
 
 ## Common problems
 
 | Symptom | Fix |
 |---|---|
-| `connection refused :5434` | `docker compose up -d db` - check `docker ps` shows mintmark-db healthy |
+| `connection refused :5434` | `docker compose up -d db`; check `docker ps` shows mintmark-db healthy |
 | NU1507 multi-source restore errors | use the repo's nuget.config (it clears machine sources); never add private feeds |
 | Migration fails `type "vector" does not exist` | `just migrate` applies the extension migration first; ensure you're on the pgvector image, not stock postgres |
-| Login 401 immediately | JWT signing key missing/short - generate `openssl rand -base64 48` into .env |
-| Prices always stale | no provider key set - offline fixture prices are labeled stale by design |
+| Login 401 immediately | JWT signing key missing/short: generate `openssl rand -base64 48` into .env |
+| Prices always stale | no provider key set: offline fixture prices are labeled stale by design |
 | pnpm workspace resolution errors on mobile | run `pnpm install` from the repo root, not apps/mobile |
 
 ## Repository walkthrough

@@ -36,10 +36,10 @@ up: infra migrate seed
 test-backend:
     cd backend && dotnet test
 
-test-web:
-    cd apps/web && pnpm test
+test-mobile:
+    cd apps/mobile && pnpm exec tsc --noEmit
 
-test-all: test-backend test-web
+test-all: test-backend test-mobile
 
 lint:
     cd backend && dotnet format --verify-no-changes
@@ -48,6 +48,7 @@ lint:
 # Regenerate the OpenAPI document + TS client (also enforced in CI)
 openapi:
     cd backend/src/Mintmark.Api && dotnet run --project Mintmark.Api -- --export-openapi
+    pnpm -C packages/api-client generate
 
 # list available recipes
 list:

@@ -14,7 +14,7 @@ Each item says what shipped instead.
    loopback (so the app now defaults to `127.0.0.1`), and the mobile
    client's provisional wire types had drifted from the committed
    OpenAPI shapes (prices crashed; holdings/identification paths were
-   wrong) - both realigned. Still compile-verified only: camera capture,
+   wrong); both realigned. Still compile-verified only: camera capture,
    biometric unlock, SecureStore on hardware, and the SQLite queue; no
    EAS build has been cut.
 2. **Lighthouse CI budget enforcement is not wired.** The design targets
@@ -23,9 +23,9 @@ Each item says what shipped instead.
 3. **The AI evaluation harness has no real-photograph ground truth yet.**
    The offline evaluator's synthetic reference set exercises the pipeline;
    per-field accuracy on real coin photos requires a hosted vision key and
-   a photographed ground-truth set - both future work. The accuracy bar in
+   a photographed ground-truth set; both future work. The accuracy bar in
    CI is therefore not yet meaningful for the hosted adapters.
-4. **Load/performance budgets (p95 targets) are untested** - no k6/NBombe r
+4. **Load/performance budgets (p95 targets) are untested**: no k6/NBombe r
    run against a 10,000-holding dataset yet.
 
 ## Deferred decisions
@@ -36,32 +36,32 @@ Each item says what shipped instead.
    did not take in v1. Consequence: a restart loses in-flight poll
    scheduling (the poller re-registers on boot; spot history in Postgres is
    unaffected). Upgrading is a config + one script.
-6. **Storage-location column encryption at rest** (security.md) - needs a
+6. **Storage-location column encryption at rest** (security.md): needs a
    key-management decision; the field is currently unindexed, unexported by
    default, and unlogged, but not encrypted.
-7. **Breached-password (HIBP k-anonymity) check** - offline denylist ships;
+7. **Breached-password (HIBP k-anonymity) check**: offline denylist ships;
    the networked check needs a privacy decision about outbound calls at
    registration.
-8. **Comparables-based valuation (Phase 2)** - deliberately not started;
+8. **Comparables-based valuation (Phase 2)**: deliberately not started;
    requires a per-source ToS review before any ingestion code (ADR 0007).
 
 ## Data provenance notes (from catalog research)
 
-9. **Serrated edge mapped to Reeded** (Canadian Maple Leaf) - the domain
+9. **Serrated edge mapped to Reeded** (Canadian Maple Leaf): the domain
    EdgeType set lacks Serrated; closest mapping applied in the seeder.
 10. **Morgan/Peace gross gram weights are derived** (AMW ÷ fineness ≈
-    26.73 g) - the US Mint publishes troy-oz silver weight, not grams; the
+    26.73 g): the US Mint publishes troy-oz silver weight, not grams; the
     derivation matches the published figure but is not mint-stated.
-11. **Libertad mintages come from Numista** (community catalog) - Casa de
+11. **Libertad mintages come from Numista** (community catalog): Casa de
     Moneda / Banxico do not publish per-coin mintages; the 2 oz reverse
     proof 1,500 figure is the divergence test's real-world anchor.
-12. **Historical depth beyond ~30 days depends on gold-api.com `/history`**
-    - metals.dev free timeseries windows at 30 days; earliest-date limits
+12. **Historical depth beyond ~30 days depends on gold-api.com `/history`**:
+    metals.dev free timeseries windows at 30 days; earliest-date limits
     are provider-side and unverified beyond the probe.
 
 ## Licensing
 
-13. **SixLabors ImageSharp Split License** - free below $1M annual gross
+13. **SixLabors ImageSharp Split License**: free below $1M annual gross
     revenue (this project qualifies); the build emits a license notice
     warning, tolerated deliberately. Commercial use above the threshold
     requires a license key via `SixLaborsLicenseKey`.
@@ -69,9 +69,30 @@ Each item says what shipped instead.
 ## Environment caveats
 
 14. **MinIO's Docker repository is archived** (pinned release, no expected
-    updates) - swap endpoint to S3/Azure Blob for production (ADR 0006
+    updates): swap endpoint to S3/Azure Blob for production (ADR 0006
     makes this a config change).
-15. **The .NET 10 antiforgery trap** - form-binding endpoints carry
+15. **The .NET 10 antiforgery trap**: form-binding endpoints carry
     implicit antiforgery metadata; the identification submit disables it
     per-endpoint (Bearer-token API, not cookie forms). Any future
     multipart endpoint must do the same.
+
+## Audit follow-ups (2026-08-23 pass; fixes landed, these deferred)
+
+16. **`GET /holdings/{id}/valuation` persists two Valuation rows per view.**
+    Correct output, unbounded row growth under refresh; needs
+    persist-only-on-input-change or per-holding debounce.
+17. **The offline evaluator hashes preprocessed submissions against raw
+    reference hashes**: the same coin takes two different DCT inputs, so
+    offline-match recall is degraded by construction. Fixing it means
+    re-baselining the evaluator's accuracy bar in CI.
+18. **The committed OpenAPI document declares no response schemas or
+    security scheme** (request bodies only). The generated TS client
+    therefore types requests but not responses; adding a Bearer scheme and
+    `Results<T>` typing is an API-surface-wide change.
+19. **Production deployment posture is unset**: CORS allows only the dev
+    origins, there is no `UseForwardedHeaders`, and the per-IP auth limiter
+    would collapse all users behind a proxy. Needed before any real deploy.
+20. **`image-size <=2.0.2` (Expo toolchain, transitive) has unpatched HIGH
+    advisories** (GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq): dev-tooling
+    reachable only, no upstream fix released; tracked until patched.
+    `uuid` is force-upgraded via pnpm overrides.

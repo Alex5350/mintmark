@@ -1,4 +1,4 @@
-# Image Credits - Mintmark seed catalog images
+# Image Credits: Mintmark seed catalog images
 
 All files in this directory are REAL photographs/official mint renders sourced from
 Wikimedia Commons (https://commons.wikimedia.org). Every image was license-verified
@@ -22,7 +22,7 @@ licenses; CC BY-SA attribution below already reflects the modified work.
 | krugerrand-silver-obverse.jpg | https://commons.wikimedia.org/wiki/File:2022_South_Africa_1_oz_Silver_Krugerrand_Obverse.jpg | https://upload.wikimedia.org/wikipedia/commons/7/7a/2022_South_Africa_1_oz_Silver_Krugerrand_Obverse.jpg | CC BY-SA 4.0 | (c) Bruxton, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), via Wikimedia Commons. Unmodified (558x543). |
 | krugerrand-silver-reverse.jpg | https://commons.wikimedia.org/wiki/File:2022_South_Africa_1_oz_Silver_Krugerrand_Reverse.jpg | https://upload.wikimedia.org/wikipedia/commons/6/61/2022_South_Africa_1_oz_Silver_Krugerrand_Reverse.jpg | CC BY-SA 4.0 | (c) Bruxton, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), via Wikimedia Commons. 1280px thumbnail, otherwise unmodified. |
 | libertad-1oz-obverse.jpg | https://commons.wikimedia.org/wiki/File:Onzaplatalibertadanv.jpg | https://upload.wikimedia.org/wikipedia/commons/f/fa/Onzaplatalibertadanv.jpg | Public domain | (c) Oscargilfc, released into the public domain by the author, via Wikimedia Commons. No attribution required. Downscaled to 2400px. 1oz Plata Pura Libertad, straight-on single-coin photo. |
-| libertad-2oz-rp.jpg | https://commons.wikimedia.org/wiki/File:Set_of_5_gold_proof_libertads_dated_2015_-_1.jpg | https://upload.wikimedia.org/wikipedia/commons/7/7d/Set_of_5_gold_proof_libertads_dated_2015_-_1.jpg | CC BY-SA 4.0 | (c) Numistacker, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), via Wikimedia Commons. 1280px thumbnail, otherwise unmodified. APPROXIMATION: gold proof Libertad set stands in for the silver 2oz reverse proof - no freely-licensed silver reverse-proof Libertad photo exists. |
+| libertad-2oz-rp-obverse.jpg | https://commons.wikimedia.org/wiki/File:Set_of_5_gold_proof_libertads_dated_2015_-_1.jpg | https://upload.wikimedia.org/wikipedia/commons/7/7d/Set_of_5_gold_proof_libertads_dated_2015_-_1.jpg | CC BY-SA 4.0 | (c) Numistacker, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), via Wikimedia Commons. 1280px thumbnail, otherwise unmodified. APPROXIMATION: gold proof Libertad set stands in for the silver 2oz reverse proof; no freely-licensed silver reverse-proof Libertad photo exists. |
 | maple-2023-obverse.jpg | https://commons.wikimedia.org/wiki/File:1-ounce_Silver_Canadian_Maple_Leaf_MADE_OF_%2B.9999%25_PURE_SILVER.jpg | https://upload.wikimedia.org/wikipedia/commons/9/90/1-ounce_Silver_Canadian_Maple_Leaf_MADE_OF_%2B.9999%25_PURE_SILVER.jpg | CC BY-SA 4.0 | (c) ARAR123, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), via Wikimedia Commons. Downscaled to 2400px, re-encoded. Queen Elizabeth II effigy side (2012-dated coin). |
 | maple-2023-reverse.jpg | https://commons.wikimedia.org/wiki/File:1-ounce_Silver_Canadian_Maple_Leaf_MADE_OF_.9999%25_PURE_SILVER.jpg | https://upload.wikimedia.org/wikipedia/commons/c/c8/1-ounce_Silver_Canadian_Maple_Leaf_MADE_OF_.9999%25_PURE_SILVER.jpg | CC BY-SA 4.0 | (c) ARAR123, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), via Wikimedia Commons. 1280px thumbnail, otherwise unmodified. Maple leaf side; reverse design unchanged through 2023. |
 | morgan-2023-obverse.jpg | https://commons.wikimedia.org/wiki/File:2021_Morgan_Commemorative_Dollar_Obverse.jpg | https://upload.wikimedia.org/wikipedia/commons/1/1d/2021_Morgan_Commemorative_Dollar_Obverse.jpg | Public domain | United States Mint (www.usmint.gov, 17 USC 105). No attribution required. 1280px thumbnail, otherwise unmodified. 2021 reissue obverse render; identical design on the 2023 reissue. |
@@ -36,13 +36,13 @@ licenses; CC BY-SA attribution below already reflects the modified work.
 
 ## Skips (fall back to rendered art in the app)
 
-- `ase-2023-proof-reverse.*` - NOT downloaded as a separate file. The 2023-W proof uses
+- `ase-2023-proof-reverse.*`: NOT downloaded as a separate file. The 2023-W proof uses
   the same Type-2 reverse as the bullion coin; the only freely-licensed Type-2 reverse
   render is already saved as `ase-2023-bu-reverse.png` (sourced from US Mint proof
   product imagery). Reuse that file for the proof row if desired.
-- `libertad-1oz-reverse.*` - no freely-licensed photo of the Mexican coat-of-arms
+- `libertad-1oz-reverse.*`: no freely-licensed photo of the Mexican coat-of-arms
   (eagle) side exists on Commons; single obverse photo provided instead.
-- `britannia-2023-obverse.*` - no freely-licensed monarch-effigy photo (Royal Mint
+- `britannia-2023-obverse.*`: no freely-licensed monarch-effigy photo (Royal Mint
   imagery is all-rights-reserved). The Britannia-figure photo serves as the row image.
 
 ## Attribution boilerplate (for the app's credits/footer)

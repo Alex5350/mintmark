@@ -1,7 +1,7 @@
 # Mintmark mobile (Expo SDK 57)
 
-The camera-first client: catalog holdings, check live spot, and - the reason
-this app lives on a phone - photograph a coin obverse and reverse and get a
+The camera-first client: catalog holdings, check live spot, and (the reason
+this app lives on a phone) photograph a coin obverse and reverse and get a
 grounded catalog identification with top-5 candidates you confirm.
 
 **Status, honestly:** the app is complete and typecheck-clean, passes
@@ -12,12 +12,22 @@ collection with rollup and per-holding valuations, prices, settings
 screenshot in the repo README comes from that run. Two known caveats
 remain: **camera capture and biometric unlock are not exercised on real
 hardware** (the simulator has no camera/Face ID), and no EAS development
-build has been cut yet - treat the first on-device run as part of
+build has been cut yet; treat the first on-device run as part of
 onboarding. Two contract fixes landed from that simulator run: the API
 base URL defaults to IPv4 loopback (`127.0.0.1`) because the simulator
 sandbox cannot open IPv6 loopback (`localhost` resolves to `::1` first),
 and the hand-written wire types were realigned to the committed OpenAPI
 shapes (see repo `docs/open-questions.md` #1).
+
+## Configuration
+
+The API base URL comes from the environment (see `app.config.ts`):
+`API_BASE_URL` or `EXPO_PUBLIC_API_URL` at start/build time. Development
+defaults to `http://127.0.0.1:5100`: IPv4 loopback deliberately, because
+the iOS simulator sandbox resolves `localhost` to IPv6 `::1` and cannot
+open IPv6 loopback sockets. Release builds without an explicit URL fail
+loudly at build time rather than silently pointing at loopback; copy
+`.env.example` to `.env` for local overrides.
 
 ## Setup
 
@@ -33,32 +43,32 @@ pnpm expo start
 
 Scan the QR code with Expo Go (Android) or the Camera app (iOS, with the
 Expo Go developer tool). The app talks to the API at the `apiBaseUrl` in
-`app.json` → `expo.extra` (default `http://localhost:5100` - for a real
+`app.json` → `expo.extra` (default `http://localhost:5100`; for a real
 phone use your machine's LAN IP, e.g. `http://192.168.1.20:5100`, and
 restart `pnpm expo start`).
 
 ## Using the app
 
-- **Sign in / register** - tokens live ONLY in `expo-secure-store`
+- **Sign in / register**: tokens live ONLY in `expo-secure-store`
   (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`); the user profile cache in
   AsyncStorage is non-secret. Access tokens rotate via the refresh
   endpoint on 401s.
-- **Collection** - your holdings with metal-accented rows, live melt total,
+- **Collection**: your holdings with metal-accented rows, live melt total,
   pull-to-refresh, cursor pagination. Gray rows mean the offline queue
   hasn't synced yet.
-- **Prices** - per-metal spot with STALE badges and the gold:silver ratio.
+- **Prices**: per-metal spot with STALE badges and the gold:silver ratio.
   (Range charts land with the price-history endpoint wiring.)
-- **Identify** - the guided flow:
+- **Identify**: the guided flow:
   1. Frame the **obverse** in the circle overlay (glare/focus feedback at
      capture), retake if needed.
   2. Tap flip; photograph the **reverse**.
   3. Review both, then submit. Job status polls automatically (2.5s).
-  4. Confirm one of the top-5 candidates - your confirmation is training
+  4. Confirm one of the top-5 candidates; your confirmation is training
      signal, written to the append-only audit run.
   When no vision key is configured, responses are labeled **offline
-  evaluator** - deterministic, honestly labeled, never claimed as model
+  evaluator**: deterministic, honestly labeled, never claimed as model
   inference (ADR 0009).
-- **Settings** - biometric lock (opt-in; falls back to device passcode),
+- **Settings**: biometric lock (opt-in; falls back to device passcode),
   offline-queue status with a manual **Flush now**, sign out.
 
 ## Offline behavior
@@ -88,5 +98,5 @@ https://docs.expo.dev/submit/introduction/.
 
 `pnpm tsc --noEmit` (strict) and `npx expo-doctor` are the current gates.
 Jest + React Native Testing Library and a Maestro flow for the
-capture→confirm path are planned, not yet present - recorded in the root
+capture→confirm path are planned, not yet present; recorded in the root
 `docs/open-questions.md`.

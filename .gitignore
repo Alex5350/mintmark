@@ -31,3 +31,10 @@ lcov.info
 # The user-level global ignore excludes **/packages/* — this repo needs its workspace packages
 !packages/**
 packages/**/node_modules/
+
+# The user-level global ignore also excludes docker-compose*.yml — the dev stack is part of the repo
+!docker-compose.yml
+
+# Local browser-automation session artifacts (DOM snapshots, scratch logs)
+.playwright-cli/
+
