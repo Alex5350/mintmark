@@ -8,7 +8,9 @@ import { Screen } from '../../components/Screen';
 import { Button, Card, Muted } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import {
+  authenticateGate,
   getBiometricAvailability,
+  isBiometricLockEnabled,
   setBiometricLockEnabled,
   type BiometricAvailability,
 } from '../../lib/biometric';
@@ -23,19 +25,34 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     void (async () => {
-      setAvailability(await getBiometricAvailability());
+      // Hydrate BOTH hardware availability and the persisted setting —
+      // otherwise a locked app shows the toggle OFF and the next tap writes
+      // the opposite of what the user believes.
+      const [available, enabled] = await Promise.all([
+        getBiometricAvailability(),
+        isBiometricLockEnabled(),
+      ]);
+      setAvailability(available);
+      setLockEnabled(enabled);
     })();
   }, []);
 
   const toggleLock = async (value: boolean) => {
-    // Enabling requires enrolled biometrics (or platform passcode); the
-    // availability gate is rendered before this can fire.
+    if (!value) {
+      // Disabling a security control must itself be authenticated: anyone
+      // holding a briefly-unlocked phone must not switch the lock off.
+      const result = await authenticateGate();
+      if (!result.success) {
+        setLockEnabled(true);
+        return;
+      }
+    }
     await setBiometricLockEnabled(value);
     setLockEnabled(value);
   };
 
   return (
-    <Screen title="Settings" subtitle="Account, security, sync">
+    <Screen title="Settings" subtitle="Account, security, sync" scroll>
       <Card style={styles.card}>
         <Text style={styles.sectionTitle}>Account</Text>
         <Muted>Signed in as</Muted>

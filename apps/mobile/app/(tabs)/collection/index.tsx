@@ -5,7 +5,7 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -34,26 +34,45 @@ export default function CollectionScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set synchronously when a page fetch begins: onEndReached can fire many
+  // times per scroll gesture and double-append the same cursor otherwise.
+  const loadingMoreRef = useRef(false);
+  // Enrichment epoch: a slower, older enrichment pass must not overwrite a
+  // newer page list (which would visibly drop freshly appended rows).
+  const enrichEpochRef = useRef(0);
 
   // The list endpoint does not return current values (valuation output is
   // per-holding), so values are enriched client-side from the valuation
-  // endpoint — same call the detail screen makes. Failures leave the row
-  // without a value rather than failing the screen.
-  const enrichWithValues = useCallback(async (items: HoldingListItem[]) => {
+  // endpoint — same call the detail screen makes, fetched only for NEW ids
+  // and merged by id. Failures leave the row without a value rather than
+  // failing the screen.
+  const enrichWithValues = useCallback(async (epoch: number, items: HoldingListItem[]) => {
     const settled = await Promise.all(
       items.map(async (item) => {
         try {
           const valuation = await api.holdings.valuation(item.id);
-          return { ...item, value: valuation.collectible.amount };
+          return { id: item.id, value: valuation.collectible.amount } as const;
         } catch {
-          return item;
+          return null;
         }
       }),
     );
-    setRows(settled);
+    if (enrichEpochRef.current !== epoch) return; // a newer pass owns the rows
+    const values = new Map(
+      settled.filter((r): r is { id: number; value: number } => r !== null).map((r) => [r.id, r.value]),
+    );
+    setRows((previous) =>
+      previous.map((row) =>
+        values.has(row.id) ? { ...row, value: values.get(row.id) } : row,
+      ),
+    );
   }, []);
 
   const load = useCallback(async (cursor?: string | null) => {
+    if (cursor) {
+      if (loadingMoreRef.current) return;
+      loadingMoreRef.current = true;
+    }
     if (cursor === undefined) setLoading(true);
     try {
       const [next, rollupResult] = await Promise.all([
@@ -62,19 +81,26 @@ export default function CollectionScreen() {
       ]);
       setError(null);
       if (rollupResult) setRollup(rollupResult);
+      const epoch = ++enrichEpochRef.current;
       setPage((previous) =>
         cursor
           ? { items: [...previous.items, ...next.items], nextCursor: next.nextCursor }
           : next,
       );
       setRows((previous) => {
-        const base = cursor ? [...previous, ...next.items] : next.items;
-        void enrichWithValues(base);
+        const previousById = new Map(previous.map((row) => [row.id, row]));
+        // Reset on refresh (no cursor), append-and-preserve on pagination:
+        // already-enriched rows keep their values instead of refetching.
+        const base = cursor
+          ? [...previous, ...next.items.filter((item) => !previousById.has(item.id))]
+          : next.items;
+        void enrichWithValues(epoch, next.items);
         return base;
       });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load holdings.');
     } finally {
+      loadingMoreRef.current = false;
       setLoading(false);
       setRefreshing(false);
     }
@@ -90,7 +116,14 @@ export default function CollectionScreen() {
   }, [load]);
 
   return (
-    <Screen title="Collection" subtitle={`${page.items.length} holdings tracked`}>
+    <Screen
+      title="Collection"
+      subtitle={
+        rollup
+          ? `${rollup.holdingCount} holdings tracked`
+          : `${page.items.length} holdings tracked`
+      }
+    >
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <FlatList
         data={rows}
@@ -139,13 +172,15 @@ function RollupCard({ rollup }: { rollup: PortfolioRollup }) {
         {formatMoney(rollup.currentValue?.amount ?? 0)}
       </Num>
       <View style={styles.totalMeta}>
-        <Num
-          size={fontSize.sm}
-          color={gain >= 0 ? colors.positive : colors.negative}
-        >
-          {gain >= 0 ? '+' : ''}
-          {gain.toFixed(2)}%
-        </Num>
+        {rollup.unrealizedPct != null ? (
+          <Num
+            size={fontSize.sm}
+            color={gain >= 0 ? colors.positive : colors.negative}
+          >
+            {gain >= 0 ? '+' : ''}
+            {gain.toFixed(2)}%
+          </Num>
+        ) : null}
         {rollup.costBasis ? (
           <Muted>
             basis {formatMoney(rollup.costBasis.amount)} · {rollup.holdingCount} holdings

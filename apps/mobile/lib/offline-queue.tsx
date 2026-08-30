@@ -6,8 +6,12 @@
  * idempotency keys, so a double-send can never create a duplicate holding.
  *
  * Flush triggers: app focus (AppState -> 'active') + a 30s interval.
- * Retry policy: per-item exponential backoff capped at 15 minutes; 4xx
- * responses are permanent failures and are dropped (surfaced as lastError).
+ * Retry policy: per-item exponential backoff (persisted, capped 15 min);
+ * 401/429 are retryable (session/rate-limit states change), 404 is a
+ * permanent drop (the target is gone), other 4xx are permanent failures
+ * dropped and surfaced as lastError. The queue is skipped entirely while
+ * signed out and cleared on sign-out (rows are not user-scoped, so a
+ * successor session must not replay them).
  *
  * Queue status is published through a tiny subscribe/getSnapshot pair —
  * consumable via useSyncExternalStore — and wrapped in <SyncProvider> for
@@ -24,6 +28,7 @@ import {
 import { AppState } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import { ApiError, isNetworkError, newIdempotencyKey, queuedRequest } from './api';
+import { getTokens } from './tokens';
 
 const DB_NAME = 'mintmark.db';
 const FLUSH_INTERVAL_MS = 30_000;
@@ -38,6 +43,7 @@ export interface PendingMutation {
   idempotency_key: string | null;
   created_at: string;
   attempts: number;
+  last_attempt_at: number | null;
 }
 
 export type QueueMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -105,6 +111,11 @@ async function ensureDb(): Promise<SQLite.SQLiteDatabase> {
           attempts INTEGER NOT NULL DEFAULT 0
         );
       `);
+      // Migration: backoff timestamps persisted with the row (v1 kept them
+      // in memory only, so the first flush after a restart ignored backoff).
+      await database.runAsync(
+        'ALTER TABLE pending_mutations ADD COLUMN last_attempt_at INTEGER',
+      ).catch(() => undefined); // column already present
       db = database;
       await refreshPendingCount();
       publish({ ready: true });
@@ -156,10 +167,22 @@ let flushing = false;
 
 export async function flush(): Promise<void> {
   if (flushing) return;
-  const database = await ensureDb();
+  // Set the guard synchronously, BEFORE the first await: two triggers in
+  // the same tick (AppState + interval, or a manual Flush now) must not
+  // both pass the check while parked on database open.
   flushing = true;
   publish({ flushing: true });
   try {
+    // Signed out: the queue holds no credentials and rows are not
+    // user-scoped — replaying them under a different (or no) session would
+    // 401/404 every row into deletion. Sign-out clears the queue instead.
+    const tokens = await getTokens();
+    if (!tokens) {
+      await refreshPendingCount();
+      return;
+    }
+
+    const database = await ensureDb();
     const rows = await database.getAllAsync<PendingMutation>(
       'SELECT * FROM pending_mutations ORDER BY created_at ASC',
     );
@@ -167,8 +190,8 @@ export async function flush(): Promise<void> {
     for (const row of rows) {
       // Per-item backoff: an item that recently failed waits out its delay
       // (derived from attempts) before another try.
-      const lastAttempt = lastAttemptAt.get(row.id);
-      if (lastAttempt !== undefined && now < lastAttempt + retryDelayMs(row.attempts)) {
+      const lastAttempt = row.last_attempt_at ?? lastAttemptAt.get(row.id);
+      if (lastAttempt !== undefined && lastAttempt !== null && now < lastAttempt + retryDelayMs(row.attempts)) {
         continue;
       }
       try {
@@ -181,12 +204,15 @@ export async function flush(): Promise<void> {
       } catch (error) {
         if (isNetworkError(error)) {
           // Still offline — bump attempts, wait out the backoff, stop here.
-          await database.runAsync(
-            'UPDATE pending_mutations SET attempts = attempts + 1 WHERE id = ?',
-            [row.id],
-          );
-          lastAttemptAt.set(row.id, Date.now());
+          await markAttempt(database, row.id, row.attempts);
           break;
+        }
+        if (error instanceof ApiError && (error.status === 401 || error.status === 429)) {
+          // Session-expiry and rate-limit rejections are STATES, not
+          // verdicts: retry later (the app refreshes tokens; the limiter
+          // window rolls over) instead of destroying the mutation.
+          await markAttempt(database, row.id, row.attempts);
+          continue;
         }
         if (error instanceof ApiError && error.status < 500) {
           // Permanent rejection: keep the queue healthy, surface it.
@@ -195,11 +221,7 @@ export async function flush(): Promise<void> {
           publish({ lastError: `${row.method} ${row.path}: ${error.message}` });
         } else {
           // 5xx — retryable, but with backoff.
-          await database.runAsync(
-            'UPDATE pending_mutations SET attempts = attempts + 1 WHERE id = ?',
-            [row.id],
-          );
-          lastAttemptAt.set(row.id, Date.now());
+          await markAttempt(database, row.id, row.attempts);
         }
       }
     }
@@ -211,12 +233,30 @@ export async function flush(): Promise<void> {
   }
 }
 
-/** In-memory last-attempt timestamps backing the per-item backoff. */
-const lastAttemptAt = new Map<string, number>();
+async function markAttempt(
+  database: SQLite.SQLiteDatabase,
+  id: string,
+  attempts: number,
+): Promise<void> {
+  const now = Date.now();
+  await database.runAsync(
+    'UPDATE pending_mutations SET attempts = attempts + 1, last_attempt_at = ? WHERE id = ?',
+    [now, id],
+  );
+  lastAttemptAt.set(id, now);
+}
 
-// ---------------------------------------------------------------------------
-// React bindings
-// ---------------------------------------------------------------------------
+/** Clears every queued mutation (sign-out: rows are not user-scoped). */
+export async function clearQueue(): Promise<void> {
+  const database = await ensureDb();
+  await database.runAsync('DELETE FROM pending_mutations');
+  lastAttemptAt.clear();
+  publish({ lastError: null });
+  await refreshPendingCount();
+}
+
+/** In-memory mirror of last_attempt_at (kept for fast reads). */
+const lastAttemptAt = new Map<string, number>();
 
 const SyncContext = createContext<QueueStatus | null>(null);
 

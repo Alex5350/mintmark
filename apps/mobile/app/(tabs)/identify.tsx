@@ -22,6 +22,7 @@ import { Badge, Button, Card, Muted, Num } from '../../components/ui';
 import { CircleOverlay } from '../../components/CircleOverlay';
 import {
   api,
+  ApiError,
   isNetworkError,
   newIdempotencyKey,
   type IdentificationStatus,
@@ -51,8 +52,14 @@ type Step =
   | { kind: 'confirmed'; queuedOffline: boolean }
   | { kind: 'failed'; message: string };
 
-const POLL_INTERVAL_MS = 2_500;
-const MAX_POLLS = 40;
+// Exponential backoff: starts at 2s, doubles to a 15s cap (~2.5 minutes of
+// total coverage across 10 polls). The status endpoint has its own
+// per-minute limiter, but hammering it flat-out wastes battery and quota.
+const INITIAL_POLL_INTERVAL_MS = 2_000;
+const MAX_POLL_INTERVAL_MS = 15_000;
+const MAX_POLLS = 12;
+const pollIntervalMs = (ticks: number): number =>
+  Math.min(INITIAL_POLL_INTERVAL_MS * 2 ** ticks, MAX_POLL_INTERVAL_MS);
 
 export default function IdentifyScreen() {
   const [step, setStep] = useState<Step>({ kind: 'capture', side: 'obverse' });
@@ -79,10 +86,22 @@ export default function IdentifyScreen() {
       quality: 0.8,
       exif: false,
     };
-    const result =
-      source === 'camera'
-        ? await ImagePicker.launchCameraAsync(options)
-        : await ImagePicker.launchImageLibraryAsync(options);
+    let result: ImagePicker.ImagePickerResult;
+    try {
+      result =
+        source === 'camera'
+          ? await ImagePicker.launchCameraAsync(options)
+          : await ImagePicker.launchImageLibraryAsync(options);
+    } catch {
+      // No camera (simulator/some devices), picker unavailable, or the OS
+      // refused the launch — surface it instead of an unhandled rejection.
+      setError(
+        source === 'camera'
+          ? 'The camera could not be opened. Use Choose from library instead.'
+          : 'The photo picker could not be opened.',
+      );
+      return;
+    }
     if (result.canceled) return;
     const asset = result.assets?.[0];
     if (!asset) return;
@@ -120,25 +139,30 @@ export default function IdentifyScreen() {
     if (step.kind !== 'polling') return;
     const { jobId } = step;
     let active = true;
-    const timer = setInterval(async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleNext = (ticks: number) => {
+      timer = setTimeout(() => void poll(), pollIntervalMs(ticks));
+    };
+    // Bump the tick count (which re-runs this effect and schedules the next
+    // backoff interval), or time the whole thing out at the budget.
+    const advanceTicksOrTimeOut = () => {
+      if (step.ticks + 1 >= MAX_POLLS) {
+        setStep({ kind: 'failed', message: 'Timed out waiting for results.' });
+        return;
+      }
+      setStep((previous) =>
+        previous.kind === 'polling' ? { ...previous, ticks: previous.ticks + 1 } : previous,
+      );
+    };
+    const poll = async (): Promise<void> => {
       if (!active) return;
       try {
         const status = await api.identification.status(jobId);
         if (!active) return;
         if (identificationStatusPolling(status.status)) {
-          if ((step.ticks ?? 0) + 1 >= MAX_POLLS) {
-            clearInterval(timer);
-            setStep({ kind: 'failed', message: 'Timed out waiting for results.' });
-          } else {
-            setStep((previous) =>
-              previous.kind === 'polling'
-                ? { ...previous, ticks: previous.ticks + 1 }
-                : previous,
-            );
-          }
+          advanceTicksOrTimeOut();
           return;
         }
-        clearInterval(timer);
         if (status.status === 3) {
           setStep({ kind: 'failed', message: 'Identification failed. Try again.' });
           return;
@@ -177,17 +201,26 @@ export default function IdentifyScreen() {
         setStep({ kind: 'candidates', jobId, candidates: views });
       } catch (cause) {
         if (!active) return;
-        if (isNetworkError(cause)) return; // transient — keep polling
-        clearInterval(timer);
+        if (
+          isNetworkError(cause) ||
+          (cause instanceof ApiError && (cause.status === 429 || cause.status === 401))
+        ) {
+          // Transient: offline, limiter window, or a token mid-refresh —
+          // count it against the poll budget and try again later.
+          advanceTicksOrTimeOut();
+          return;
+        }
         setStep({
           kind: 'failed',
           message: cause instanceof Error ? cause.message : 'Polling failed.',
         });
+        return;
       }
-    }, POLL_INTERVAL_MS);
+    };
+    scheduleNext(step.ticks);
     return () => {
       active = false;
-      clearInterval(timer);
+      if (timer !== undefined) clearTimeout(timer);
     };
   }, [step]);
 

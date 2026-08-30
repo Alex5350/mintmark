@@ -16,6 +16,7 @@ import {
   type ReactNode,
 } from 'react';
 import { api, claimsFromToken, setUnauthorizedHandler, type User } from './api';
+import { clearQueue } from './offline-queue';
 import { clearTokens, getTokens, setTokens } from './tokens';
 
 const USER_CACHE_KEY = 'mintmark.cachedUser';
@@ -109,7 +110,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    // Contain the session server-side first: revoke the refresh token's
+    // family so extracted tokens stop working. Then drop local state —
+    // including the offline queue, whose rows are not user-scoped and must
+    // not replay under a different account.
+    const tokens = await getTokens();
+    if (tokens) {
+      await api.auth.logout(tokens.refreshToken);
+    }
     await clearTokens();
+    await clearQueue();
     await cacheUser(null);
     setUser(null);
     setStatus('signedOut');

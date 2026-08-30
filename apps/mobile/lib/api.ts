@@ -296,11 +296,21 @@ async function parseBody(response: Response): Promise<unknown> {
 }
 
 function errorFor(response: Response, body: unknown): ApiError {
-  const detail =
-    typeof body === 'object' && body !== null && 'error' in body
-      ? String((body as { error: unknown }).error)
-      : undefined;
-  return new ApiError(response.status, body, detail);
+  // The API errors as RFC 9457 problem details: prefer the human-readable
+  // detail/title over the bare status line.
+  if (typeof body === 'object' && body !== null) {
+    const problem = body as { detail?: unknown; title?: unknown; errors?: unknown };
+    const detail =
+      typeof problem.detail === 'string' && problem.detail
+        ? problem.detail
+        : typeof problem.title === 'string'
+          ? problem.title
+          : undefined;
+    if (detail) {
+      return new ApiError(response.status, body, detail);
+    }
+  }
+  return new ApiError(response.status, body);
 }
 
 // --- refresh-once retry -----------------------------------------------------
@@ -372,6 +382,15 @@ async function request<T>(
       if (response.ok) {
         return (await parseBody(response)) as T;
       }
+      if (response.status === 401) {
+        await clearTokens();
+        onUnauthorized?.();
+        throw new UnauthorizedError();
+      }
+      // The retried request failed for a non-auth reason (403/404/409/…):
+      // report THAT error — wiping the session would log the user out over
+      // a business failure and mask what actually happened.
+      throw errorFor(response, await parseBody(response));
     }
     await clearTokens();
     onUnauthorized?.();
@@ -415,6 +434,18 @@ export const api = {
         body: input,
         skipAuth: true,
       });
+    },
+    /** Revokes the refresh token's whole family server-side (sign-out). */
+    async logout(refreshToken: string): Promise<void> {
+      try {
+        await request('POST', '/api/v1/auth/logout', {
+          body: { refreshToken },
+          skipAuth: true,
+        });
+      } catch {
+        // Best-effort containment: a failed revoke must not block local
+        // sign-out (the token expires on its own).
+      }
     },
   },
 

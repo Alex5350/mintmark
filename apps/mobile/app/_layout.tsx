@@ -4,8 +4,9 @@
  */
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -22,11 +23,11 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <AuthProvider>
-        <SyncProvider>
-          <BiometricGate>
+        <BiometricGate>
+          <SyncProvider>
             <RootNavigator />
-          </BiometricGate>
-        </SyncProvider>
+          </SyncProvider>
+        </BiometricGate>
       </AuthProvider>
     </SafeAreaProvider>
   );
@@ -54,21 +55,32 @@ function RootNavigator() {
 /**
  * If the biometric lock is enabled, the app requires a successful
  * LocalAuthentication prompt (biometric first, platform passcode fallback)
- * before rendering anything beyond this gate.
+ * before rendering anything beyond this gate. Re-locks whenever the app
+ * leaves the foreground, so returning from the app switcher re-prompts —
+ * a lock that only guards cold starts would be decorative.
  */
 function BiometricGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<'checking' | 'locked' | 'open'>('checking');
   const [message, setMessage] = useState<string | null>(null);
+  const enabledRef = useRef(false);
 
   useEffect(() => {
     let active = true;
     (async () => {
       const enabled = await isBiometricLockEnabled();
+      enabledRef.current = enabled;
       if (!active) return;
       setState(enabled ? 'locked' : 'open');
     })();
+    const subscription = AppState.addEventListener('change', (appState) => {
+      if (appState === 'background' && enabledRef.current) {
+        setState('locked');
+        setMessage(null);
+      }
+    });
     return () => {
       active = false;
+      subscription.remove();
     };
   }, []);
 

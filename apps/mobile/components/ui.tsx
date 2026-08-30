@@ -104,6 +104,9 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
       style={({ pressed }) => [
         buttonStyles.base,
         variant === 'primary' && buttonStyles.primary,
@@ -183,6 +186,8 @@ export function Field({
         autoCorrect={false}
         keyboardType={keyboardType}
         style={fieldStyles.input}
+        accessibilityLabel={label}
+        textContentType={secureTextEntry ? 'password' : 'emailAddress'}
       />
     </View>
   );
