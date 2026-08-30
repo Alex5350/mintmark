@@ -1,14 +1,16 @@
 /**
  * Typed API client for the Mintmark API.
  *
- * Response shapes are provisional — the architecture plan routes both
- * clients through a generated `packages/api-client` built from the
- * committed OpenAPI document; once that exists this module's types get
- * replaced by it while keeping the transport behavior below (refresh-once
- * retry, multipart identification, idempotency keys).
+ * Wire contracts mirror the committed OpenAPI document (docs/openapi.json)
+ * and the generated web client: enums arrive as ints (label maps live in
+ * lib/enums.ts), money as {amount, currency, isZero}, dates as ISO strings.
  *
+ * Transport behavior:
  * - Base URL: expo-constants `expoConfig.extra.apiBaseUrl`
- *   (default http://localhost:5100).
+ *   (default http://127.0.0.1:5100 — IPv4 loopback deliberately, because
+ *   the iOS simulator sandbox resolves `localhost` to IPv6 `::1` first
+ *   and cannot open IPv6 loopback sockets, so every request fails with
+ *   an opaque "Failed to fetch"; plain 127.0.0.1 sidesteps resolution).
  * - JSON is camelCase.
  * - 401 -> refresh once via rotating refresh token, retry the original
  *   request; if refresh fails the session is cleared and UnauthorizedError
@@ -17,11 +19,15 @@
  *   submits must not create duplicate holdings).
  */
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { clearTokens, getTokens, setTokens } from './tokens';
 
 const extra = (Constants.expoConfig?.extra ?? {}) as { apiBaseUrl?: string };
 
-export const API_BASE_URL: string = extra.apiBaseUrl ?? 'http://localhost:5100';
+const DEFAULT_BASE_URL =
+  Platform.OS === 'ios' ? 'http://127.0.0.1:5100' : 'http://10.0.2.2:5100';
+
+export const API_BASE_URL: string = extra.apiBaseUrl ?? DEFAULT_BASE_URL;
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -60,8 +66,14 @@ export const isUnauthorizedError = (error: unknown): error is UnauthorizedError 
   error instanceof UnauthorizedError;
 
 // ---------------------------------------------------------------------------
-// Provisional domain types (camelCase JSON)
+// Wire types (docs/openapi.json / live API)
 // ---------------------------------------------------------------------------
+
+export interface Money {
+  amount: number;
+  currency: string;
+  isZero: boolean;
+}
 
 export interface User {
   id: string;
@@ -69,63 +81,137 @@ export interface User {
 }
 
 export interface AuthResponse {
-  user: User;
   accessToken: string;
   refreshToken: string;
+  expiresAtUtc?: string;
+  tokenType?: string;
 }
 
-export type Metal = 'Gold' | 'Silver' | 'Platinum' | 'Palladium';
-
-export interface Holding {
-  id: string;
-  series: string;
-  metal: Metal;
-  year?: number | null;
-  mintMark?: string | null;
-  quantity: number;
-  meltValue?: { amount: number; currency: string; asOf: string; stale: boolean } | null;
-  updatedAt: string;
+export interface HoldingListItem {
+  id: number;
+  displayName: string;
+  metal: number | null;
+  form: number;
+  effectiveQuantity: number;
+  effectivePurchasePricePerUnit: Money | null;
+  currentValue: Money | null;
 }
 
 export interface HoldingsPage {
-  items: Holding[];
+  items: HoldingListItem[];
   nextCursor: string | null;
 }
 
+export interface HoldingDetail {
+  id: number;
+  coinTypeId: number | null;
+  displayName: string;
+  form: number;
+  originalQuantity: number;
+  effectiveQuantity: number;
+  originalPurchasePricePerUnit: Money | null;
+  effectivePurchasePricePerUnit: Money | null;
+  revisionCount: number;
+  currentMelt: Money | null;
+  currentCollectible: Money | null;
+  purchasedAtUtc: string;
+  isDeleted: boolean;
+}
+
+export interface PremiumFactor {
+  factorName: string;
+  multiplier: number;
+  rationale: string;
+}
+
+export interface Valuation {
+  holdingId: number;
+  melt: Money;
+  collectible: Money;
+  premium: Money;
+  premiumMultiplier: number;
+  premiumFactors: PremiumFactor[];
+  confidenceBand: {
+    lowFraction: number;
+    highFraction: number;
+    lowValue: Money;
+    highValue: Money;
+  };
+  provenance: {
+    spotPricePerTroyOunce: Money;
+    source: string;
+    sourceTimestampUtc: string;
+    method: string;
+    methodVersion: string;
+  };
+  computedAtUtc: string;
+}
+
+export interface PortfolioRollup {
+  holdingCount: number;
+  costBasis: Money | null;
+  currentValue: Money | null;
+  unrealizedPct: number | null;
+  byMetal: { metal: number; value: Money; weight: number }[];
+  bySeries: { seriesId: number; seriesName: string; value: Money; weight: number }[];
+}
+
 export interface SpotQuote {
-  metal: Metal;
-  pricePerOzt: number;
+  /** MetalKind int: 0 Gold, 1 Silver, 2 Platinum, 3 Palladium. */
+  metal: number;
   currency: string;
-  asOf: string;
-  changePercent24h?: number | null;
-  /** Stale is never silent (architecture doc): served from last known good
-   *  price while a provider outage resolves. */
-  stale: boolean;
+  price: number;
+  bid: number;
+  ask: number;
   provider?: string | null;
+  sourceTimestampUtc: string;
+  /** Stale is never silent (architecture doc): served from last known good
+   * price while a provider outage resolves. */
+  isStale: boolean;
+  staleSince?: string | null;
 }
 
-export interface PricesCurrent {
-  quotes: SpotQuote[];
-  asOf: string;
+export interface IdentificationSubmitResult {
+  jobId: number;
+  deduplicated: boolean;
 }
 
-export interface IdentificationCandidate {
-  id: string;
-  series: string;
-  metal: Metal;
-  yearRange?: string | null;
-  catalogNo?: string | null;
-  confidence: number; // 0..1
+export interface IdentificationCandidateWire {
+  coinTypeId: number;
+  /** Blended hybrid-search match score, 0..1. */
+  score: number;
 }
 
-export type IdentificationStatus = 'queued' | 'processing' | 'completed' | 'failed';
+/** IdentificationJobStatus: 0 Queued, 1 AwaitingConfirmation, 2 Confirmed, 3 Failed. */
+export interface IdentificationStatus {
+  jobId: number;
+  status: number;
+  providerLabel: string;
+  promptTemplateVersion: string;
+  createdAtUtc: string;
+  perFieldConfidences: Record<string, number>;
+  candidates: IdentificationCandidateWire[];
+  confirmedCoinTypeId: number | null;
+}
 
-export interface IdentificationJob {
-  id: string;
-  status: IdentificationStatus;
-  error?: string | null;
-  candidates?: IdentificationCandidate[];
-  confirmedCandidateId?: string | null;
+export interface CoinTypeDetail {
+  detail: {
+    id: number;
+    seriesId: number;
+    seriesName: string;
+    mintId: number;
+    mintName: string;
+    year: number;
+    name: string;
+    metal: number | null;
+    fineness: number;
+    grossWeightGrams: number;
+    actualMetalWeightTroyOz: number;
+    diameterMillimeters: number | null;
+    mintage?: number | null;
+  };
+  obverseImageUrl?: string | null;
+  reverseImageUrl?: string | null;
 }
 
 /** A picked/captured photo ready for multipart upload. */
@@ -133,6 +219,19 @@ export interface ImagePart {
   uri: string;
   name: string;
   type: string;
+}
+
+/** JWT claims the API puts in access tokens (sub, email). */
+export function claimsFromToken(token: string): { sub?: string; email?: string } {
+  const payload = token.split('.')[1];
+  if (!payload) return {};
+  try {
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const json = atob(normalized);
+    return JSON.parse(json) as { sub?: string; email?: string };
+  } catch {
+    return {};
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -289,15 +388,17 @@ async function request<T>(
 // Endpoints
 // ---------------------------------------------------------------------------
 
-function imagePartFormData(
-  obverse: ImagePart,
-  reverse: ImagePart,
-): FormData {
+function imagePartFormData(parts: {
+  obverse: ImagePart;
+  reverse: ImagePart;
+  edge?: ImagePart | null;
+}): FormData {
   const formData = new FormData();
   // RN FormData accepts {uri, name, type} parts at runtime; the DOM lib
   // signature only knows Blob, hence the cast.
-  formData.append('obverse', obverse as unknown as Blob);
-  formData.append('reverse', reverse as unknown as Blob);
+  formData.append('obverse', parts.obverse as unknown as Blob);
+  formData.append('reverse', parts.reverse as unknown as Blob);
+  if (parts.edge) formData.append('edge', parts.edge as unknown as Blob);
   return formData;
 }
 
@@ -318,13 +419,26 @@ export const api = {
   },
 
   holdings: {
-    list(cursor?: string | null): Promise<HoldingsPage> {
-      return request('GET', '/api/v1/holdings', { query: { cursor } });
+    /** `limit` is required by the list endpoint (page size). */
+    list(cursor?: string | null, limit = 50): Promise<HoldingsPage> {
+      return request('GET', '/api/v1/holdings', { query: { cursor, limit } });
+    },
+    get(id: number): Promise<HoldingDetail> {
+      return request('GET', `/api/v1/holdings/${id}`);
+    },
+    valuation(id: number): Promise<Valuation> {
+      return request('GET', `/api/v1/holdings/${id}/valuation`);
+    },
+  },
+
+  portfolio: {
+    rollup(): Promise<PortfolioRollup> {
+      return request('GET', '/api/v1/portfolio/rollup');
     },
   },
 
   prices: {
-    current(): Promise<PricesCurrent> {
+    current(): Promise<SpotQuote[]> {
       return request('GET', '/api/v1/prices/current');
     },
   },
@@ -333,24 +447,31 @@ export const api = {
     submit(images: {
       obverse: ImagePart;
       reverse: ImagePart;
-    }): Promise<{ id: string }> {
-      return request('POST', '/api/v1/identification', {
-        formData: imagePartFormData(images.obverse, images.reverse),
+      edge?: ImagePart | null;
+    }): Promise<IdentificationSubmitResult> {
+      return request('POST', '/api/v1/identification/submit', {
+        formData: imagePartFormData(images),
         idempotencyKey: newIdempotencyKey('identification'),
       });
     },
-    get(id: string): Promise<IdentificationJob> {
-      return request('GET', `/api/v1/identification/${id}`);
+    status(jobId: number): Promise<IdentificationStatus> {
+      return request('GET', `/api/v1/identification/${jobId}/status`);
     },
     confirm(
-      id: string,
-      candidateId: string,
+      jobId: number,
+      coinTypeId: number,
       idempotencyKey = newIdempotencyKey('confirm'),
-    ): Promise<IdentificationJob> {
-      return request('POST', `/api/v1/identification/${id}/confirm`, {
-        body: { candidateId },
+    ): Promise<unknown> {
+      return request('POST', `/api/v1/identification/${jobId}/confirm`, {
+        body: { coinTypeId },
         idempotencyKey,
       });
+    },
+  },
+
+  catalog: {
+    coinType(id: number): Promise<CoinTypeDetail> {
+      return request('GET', `/api/v1/catalog/coin-types/${id}`);
     },
   },
 };

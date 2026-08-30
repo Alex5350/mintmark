@@ -15,7 +15,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { api, setUnauthorizedHandler, type User } from './api';
+import { api, claimsFromToken, setUnauthorizedHandler, type User } from './api';
 import { clearTokens, getTokens, setTokens } from './tokens';
 
 const USER_CACHE_KEY = 'mintmark.cachedUser';
@@ -63,7 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const tokens = await getTokens();
       if (!active) return;
       if (tokens) {
-        setUser(await readCachedUser());
+        const cached = await readCachedUser();
+        if (cached) {
+          setUser(cached);
+        } else {
+          const claims = claimsFromToken(tokens.accessToken);
+          setUser({ id: claims.sub ?? '', email: claims.email ?? '' });
+        }
         setStatus('signedIn');
       } else {
         setStatus('signedOut');
@@ -83,8 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       accessToken: response.accessToken,
       refreshToken: response.refreshToken,
     });
-    await cacheUser(response.user);
-    setUser(response.user);
+    // The auth endpoints return tokens only (no profile object), so the
+    // display identity comes from the access token's claims.
+    const claims = claimsFromToken(response.accessToken);
+    const user: User = { id: claims.sub ?? '', email: claims.email ?? email };
+    await cacheUser(user);
+    setUser(user);
     setStatus('signedIn');
   }, []);
 

@@ -17,6 +17,10 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
+        name="collection/[id]"
+        options={{ href: null }} // detail route: reachable by push, not a tab
+      />
+      <Tabs.Screen
         name="collection"
         options={{
           title: 'Collection',

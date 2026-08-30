@@ -7,19 +7,20 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '../../components/Screen';
 import { Badge, Card, Muted, Num } from '../../components/ui';
-import { api, type PricesCurrent, type SpotQuote } from '../../lib/api';
+import { api, type SpotQuote } from '../../lib/api';
+import { metalLabel, type Metal } from '../../lib/enums';
 import { colors, fontSize, fontWeight, metalColor, radius, space, tabular } from '../../lib/theme';
 
 const RANGES = ['1D', '1W', '1M', '3M', '1Y', '5Y', 'MAX'] as const;
 
 export default function PricesScreen() {
-  const [prices, setPrices] = useState<PricesCurrent | null>(null);
+  const [quotes, setQuotes] = useState<SpotQuote[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setPrices(await api.prices.current());
+      setQuotes(await api.prices.current());
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not load prices.');
@@ -32,13 +33,15 @@ export default function PricesScreen() {
     void load();
   }, [load]);
 
-  const gold = prices?.quotes.find((quote) => quote.metal === 'Gold');
-  const silver = prices?.quotes.find((quote) => quote.metal === 'Silver');
+  const gold = quotes?.find((quote) => quote.metal === 0);
+  const silver = quotes?.find((quote) => quote.metal === 1);
   const ratio =
-    gold && silver && silver.pricePerOzt > 0 ? gold.pricePerOzt / silver.pricePerOzt : null;
+    gold && silver && silver.price > 0 ? gold.price / silver.price : null;
+  const latest = quotes?.reduce<string>((best, quote) =>
+    quote.sourceTimestampUtc > best ? quote.sourceTimestampUtc : best, '');
 
   return (
-    <Screen title="Prices" subtitle={formatTimestamp(prices?.asOf)}>
+    <Screen title="Prices" subtitle={latest ? formatTimestamp(latest) : undefined}>
       <ScrollView
         refreshControl={
           <RefreshControl
@@ -63,10 +66,10 @@ export default function PricesScreen() {
           </Card>
         ) : null}
 
-        {(prices?.quotes ?? []).map((quote) => (
+        {(quotes ?? []).map((quote) => (
           <QuoteRow key={quote.metal} quote={quote} />
         ))}
-        {!prices && !error ? <Muted>Loading spot prices…</Muted> : null}
+        {!quotes && !error ? <Muted>Loading spot prices…</Muted> : null}
 
         <View style={styles.chips}>
           {RANGES.map((range) => (
@@ -82,30 +85,28 @@ export default function PricesScreen() {
 }
 
 function QuoteRow({ quote }: { quote: SpotQuote }) {
-  const accent = metalColor(quote.metal);
-  const change = quote.changePercent24h ?? null;
+  const label = metalLabel(quote.metal);
+  const accent = metalColor(label);
   return (
     <Card style={styles.quote}>
       <View style={styles.quoteRow}>
         <View style={styles.quoteId}>
           <View style={[styles.dot, { backgroundColor: accent }]} />
-          <Text style={styles.metal}>{quote.metal}</Text>
+          <Text style={styles.metal}>{label}</Text>
         </View>
-        {quote.stale ? <Badge label="stale" /> : null}
+        {quote.isStale ? <Badge label="stale" /> : null}
       </View>
       <View style={styles.quoteRow}>
         <Num size={fontSize.xl} color={accent}>
-          {formatMoney(quote.pricePerOzt)}
+          {formatMoney(quote.price)}
           <Text style={styles.unit}> / ozt</Text>
         </Num>
-        {change !== null ? (
-          <Num color={change >= 0 ? colors.positive : colors.negative} size={fontSize.sm}>
-            {change >= 0 ? '+' : ''}
-            {change.toFixed(2)}%
-          </Num>
-        ) : null}
+        {quote.provider ? <Muted>{quote.provider}</Muted> : null}
       </View>
-      <Muted>as of {formatTimestamp(quote.asOf)}</Muted>
+      <Muted>
+        bid {formatMoney(quote.bid)} · ask {formatMoney(quote.ask)}
+      </Muted>
+      <Muted>as of {formatTimestamp(quote.sourceTimestampUtc)}</Muted>
     </Card>
   );
 }

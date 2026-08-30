@@ -24,21 +24,30 @@ import {
   api,
   isNetworkError,
   newIdempotencyKey,
-  type IdentificationCandidate,
-  type IdentificationJob,
+  type IdentificationStatus,
   type ImagePart,
 } from '../../lib/api';
 import { enqueue } from '../../lib/offline-queue';
+import { identificationStatusPolling, metalLabel } from '../../lib/enums';
 import { colors, fontSize, fontWeight, metalColor, radius, space } from '../../lib/theme';
 
 type Side = 'obverse' | 'reverse';
+
+/** A hybrid-search candidate enriched with its catalog row for display. */
+interface CandidateView {
+  coinTypeId: number;
+  score: number;
+  name: string | null;
+  metal: number | null;
+  year: number | null;
+}
 
 type Step =
   | { kind: 'capture'; side: Side }
   | { kind: 'review' }
   | { kind: 'submitting' }
-  | { kind: 'polling'; jobId: string; ticks: number }
-  | { kind: 'candidates'; job: IdentificationJob }
+  | { kind: 'polling'; jobId: number; ticks: number }
+  | { kind: 'candidates'; jobId: number; candidates: CandidateView[] }
   | { kind: 'confirmed'; queuedOffline: boolean }
   | { kind: 'failed'; message: string };
 
@@ -91,11 +100,11 @@ export default function IdentifyScreen() {
     setStep({ kind: 'submitting' });
     setError(null);
     try {
-      const job = await api.identification.submit({
+      const result = await api.identification.submit({
         obverse: toImagePart(obverse, 'obverse'),
         reverse: toImagePart(reverse, 'reverse'),
       });
-      setStep({ kind: 'polling', jobId: job.id, ticks: 0 });
+      setStep({ kind: 'polling', jobId: result.jobId, ticks: 0 });
     } catch (cause) {
       setStep({
         kind: 'failed',
@@ -105,7 +114,8 @@ export default function IdentifyScreen() {
   }, [obverse, reverse]);
 
   // Async by design: clients poll a job status; no request blocks on the
-  // model call.
+  // model call. Status 0 (Queued) keeps polling; 1 (AwaitingConfirmation)
+  // resolves candidate names through the catalog; 3 (Failed) stops.
   useEffect(() => {
     if (step.kind !== 'polling') return;
     const { jobId } = step;
@@ -113,31 +123,58 @@ export default function IdentifyScreen() {
     const timer = setInterval(async () => {
       if (!active) return;
       try {
-        const job = await api.identification.get(jobId);
+        const status = await api.identification.status(jobId);
         if (!active) return;
-        if (job.status === 'completed') {
-          clearInterval(timer);
-          if (job.candidates?.length) {
-            setStep({ kind: 'candidates', job });
+        if (identificationStatusPolling(status.status)) {
+          if ((step.ticks ?? 0) + 1 >= MAX_POLLS) {
+            clearInterval(timer);
+            setStep({ kind: 'failed', message: 'Timed out waiting for results.' });
           } else {
-            setStep({
-              kind: 'failed',
-              message: 'No matches found. Try sharper, well-lit photos.',
-            });
+            setStep((previous) =>
+              previous.kind === 'polling'
+                ? { ...previous, ticks: previous.ticks + 1 }
+                : previous,
+            );
           }
-        } else if (job.status === 'failed') {
-          clearInterval(timer);
-          setStep({ kind: 'failed', message: job.error ?? 'Identification failed.' });
-        } else if ((step.ticks ?? 0) + 1 >= MAX_POLLS) {
-          clearInterval(timer);
-          setStep({ kind: 'failed', message: 'Timed out waiting for results.' });
-        } else {
-          setStep((previous) =>
-            previous.kind === 'polling'
-              ? { ...previous, ticks: previous.ticks + 1 }
-              : previous,
-          );
+          return;
         }
+        clearInterval(timer);
+        if (status.status === 3) {
+          setStep({ kind: 'failed', message: 'Identification failed. Try again.' });
+          return;
+        }
+        const candidates = status.candidates ?? [];
+        if (!candidates.length) {
+          setStep({
+            kind: 'failed',
+            message: 'No matches found. Try sharper, well-lit photos.',
+          });
+          return;
+        }
+        const views = await Promise.all(
+          candidates.map(async (candidate) => {
+            try {
+              const coinType = await api.catalog.coinType(candidate.coinTypeId);
+              return {
+                coinTypeId: candidate.coinTypeId,
+                score: candidate.score,
+                name: coinType.detail.name,
+                metal: coinType.detail.metal,
+                year: coinType.detail.year,
+              } satisfies CandidateView;
+            } catch {
+              return {
+                coinTypeId: candidate.coinTypeId,
+                score: candidate.score,
+                name: null,
+                metal: null,
+                year: null,
+              } satisfies CandidateView;
+            }
+          }),
+        );
+        if (!active) return;
+        setStep({ kind: 'candidates', jobId, candidates: views });
       } catch (cause) {
         if (!active) return;
         if (isNetworkError(cause)) return; // transient — keep polling
@@ -154,11 +191,11 @@ export default function IdentifyScreen() {
     };
   }, [step]);
 
-  const confirm = useCallback(async (jobId: string, candidate: IdentificationCandidate) => {
+  const confirm = useCallback(async (jobId: number, candidate: CandidateView) => {
     setError(null);
     const idempotencyKey = newIdempotencyKey('confirm');
     try {
-      await api.identification.confirm(jobId, candidate.id, idempotencyKey);
+      await api.identification.confirm(jobId, candidate.coinTypeId, idempotencyKey);
       setStep({ kind: 'confirmed', queuedOffline: false });
     } catch (cause) {
       if (isNetworkError(cause)) {
@@ -167,7 +204,7 @@ export default function IdentifyScreen() {
         await enqueue(
           'POST',
           `/api/v1/identification/${jobId}/confirm`,
-          { candidateId: candidate.id },
+          { coinTypeId: candidate.coinTypeId },
           idempotencyKey,
         );
         setStep({ kind: 'confirmed', queuedOffline: true });
@@ -230,8 +267,8 @@ export default function IdentifyScreen() {
 
         {step.kind === 'candidates' ? (
           <CandidatesStep
-            job={step.job}
-            onConfirm={(candidate) => void confirm(step.job.id, candidate)}
+            candidates={step.candidates}
+            onConfirm={(candidate) => void confirm(step.jobId, candidate)}
           />
         ) : null}
 
@@ -357,33 +394,33 @@ function ReviewThumb({
 }
 
 function CandidatesStep({
-  job,
+  candidates,
   onConfirm,
 }: {
-  job: IdentificationJob;
-  onConfirm: (candidate: IdentificationCandidate) => void;
+  candidates: CandidateView[];
+  onConfirm: (candidate: CandidateView) => void;
 }) {
-  const candidates = job.candidates ?? [];
   return (
     <View style={styles.stepGap}>
       <Muted>Top {candidates.length} candidates — confirm the match.</Muted>
       {candidates.map((candidate, index) => {
-        const accent = metalColor(candidate.metal);
+        const metal = candidate.metal == null ? null : metalLabel(candidate.metal);
+        const accent = metal ? metalColor(metal) : colors.gold;
         return (
-          <Card key={candidate.id} style={styles.candidate}>
+          <Card key={candidate.coinTypeId} style={styles.candidate}>
             <View style={styles.candidateRow}>
               <Text style={[styles.rank, { color: accent }]}>#{index + 1}</Text>
               <View style={styles.candidateMain}>
                 <Text style={styles.candidateSeries} numberOfLines={2}>
-                  {candidate.series}
+                  {candidate.name ?? `Catalog row ${candidate.coinTypeId}`}
                 </Text>
                 <Text style={styles.candidateMeta}>
-                  {[candidate.metal, candidate.yearRange, candidate.catalogNo]
+                  {[metal ?? 'Unspecified', candidate.year]
                     .filter(Boolean)
                     .join(' · ')}
                 </Text>
               </View>
-              <Num color={accent}>{Math.round(candidate.confidence * 100)}%</Num>
+              <Num color={accent}>{Math.round(candidate.score * 100)}%</Num>
             </View>
             <Button label="Confirm" onPress={() => onConfirm(candidate)} />
           </Card>
