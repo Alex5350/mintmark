@@ -5,10 +5,19 @@ this app lives on a phone - photograph a coin obverse and reverse and get a
 grounded catalog identification with top-5 candidates you confirm.
 
 **Status, honestly:** the app is complete and typecheck-clean, passes
-`expo-doctor` 21/21, but has **not yet been executed on a device or
-simulator** in this repository's development (see repo
-`docs/open-questions.md` #1). Treat the first on-device run as part of
-onboarding.
+`expo-doctor` 21/21, and has been **run end-to-end on an iOS simulator**
+(iPhone 17 Pro, iOS 26.3, Expo Go + Metro): sign-in against the live API,
+collection with rollup and per-holding valuations, prices, settings
+(JWT-derived account, biometric availability), and every marketing
+screenshot in the repo README comes from that run. Two known caveats
+remain: **camera capture and biometric unlock are not exercised on real
+hardware** (the simulator has no camera/Face ID), and no EAS development
+build has been cut yet - treat the first on-device run as part of
+onboarding. Two contract fixes landed from that simulator run: the API
+base URL defaults to IPv4 loopback (`127.0.0.1`) because the simulator
+sandbox cannot open IPv6 loopback (`localhost` resolves to `::1` first),
+and the hand-written wire types were realigned to the committed OpenAPI
+shapes (see repo `docs/open-questions.md` #1).
 
 ## Setup
 

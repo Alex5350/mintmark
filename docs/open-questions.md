@@ -5,11 +5,18 @@ Each item says what shipped instead.
 
 ## Verification gaps
 
-1. **Mobile has never run on a device or simulator.** The Expo app is
-   typecheck-clean and expo-doctor 21/21, but camera capture, biometrics,
-   SecureStore, SQLite queue, and Metro monorepo resolution are
-   compile-verified only. First EAS build on real hardware may surface
-   integration issues.
+1. **Mobile has run on the iOS simulator but not on real hardware.** The
+   Expo app is typecheck-clean and expo-doctor 21/21, and an
+   iPhone 17 Pro simulator run (Expo Go, live API) verified sign-in,
+   collection + rollup, per-holding valuation detail, prices, settings,
+   and produced the README's mobile screenshots. That run surfaced and
+   fixed two real defects: the simulator sandbox cannot open IPv6
+   loopback (so the app now defaults to `127.0.0.1`), and the mobile
+   client's provisional wire types had drifted from the committed
+   OpenAPI shapes (prices crashed; holdings/identification paths were
+   wrong) - both realigned. Still compile-verified only: camera capture,
+   biometric unlock, SecureStore on hardware, and the SQLite queue; no
+   EAS build has been cut.
 2. **Lighthouse CI budget enforcement is not wired.** The design targets
    LCP < 2.0s / Lighthouse 95+ (brief §10) but no CI job enforces it yet.
    Manual checks pass locally; enforcement is a CI addition.

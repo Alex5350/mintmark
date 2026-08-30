@@ -18,6 +18,22 @@
 |---|---|
 | ![Prices](docs/assets/mintmark-web-prices.png) | ![Identify](docs/assets/mintmark-web-identify.png) |
 
+The mobile client (Expo SDK 57), captured on a real iOS simulator run -
+guided two-shot capture, live portfolio rollup and per-holding valuation,
+biometric lock and durable offline queue:
+
+| Mobile - Collection: rollup + live values | Mobile - Holding detail: premium factors |
+|---|---|
+| ![Mobile collection](docs/assets/mintmark-mobile-collection.png) | ![Mobile holding detail](docs/assets/mintmark-mobile-holding-detail.png) |
+
+| Mobile - Prices: spot + Au:Ag ratio | Mobile - Identify: guided capture |
+|---|---|
+| ![Mobile prices](docs/assets/mintmark-mobile-prices.png) | ![Mobile identify](docs/assets/mintmark-mobile-identify.png) |
+
+| Mobile - Sign in | Mobile - Settings: security + sync |
+|---|---|
+| ![Mobile login](docs/assets/mintmark-mobile-login.png) | ![Mobile settings](docs/assets/mintmark-mobile-settings.png) |
+
 Coin imagery in the app is **real photography, freely licensed** - sourced
 from Wikimedia Commons and public-domain US Mint renders, every image's
 license verified (PD/CC0/CC-BY/CC-BY-SA; no NC/ND) with per-file
