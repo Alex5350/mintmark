@@ -99,5 +99,10 @@ public sealed class AuthModule : IEndpointModule
     }
 
     private static string? DeviceLabel(HttpContext http) =>
-        http.Request.Headers.UserAgent.ToString() is { Length: > 0 } agent ? agent : null;
+        // Cap at the column maximum: some in-app browsers and privacy
+        // extensions send User-Agents well past 200 chars, which would fail
+        // the insert and turn every login attempt into a 500.
+        http.Request.Headers.UserAgent.ToString() is { Length: > 0 } agent
+            ? agent[..Math.Min(agent.Length, 200)]
+            : null;
 }

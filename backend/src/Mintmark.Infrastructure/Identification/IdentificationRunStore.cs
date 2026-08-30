@@ -36,10 +36,11 @@ public sealed class IdentificationRunStore(MintmarkDbContext dbContext) : IIdent
 
     /// <inheritdoc />
     public Task<IdentificationRun?> FindByObversePerceptualHashAsync(
+        UserId userId,
         ulong perceptualHash,
         CancellationToken cancellationToken = default) =>
         dbContext.IdentificationRuns
-            .Where(r => r.ObversePerceptualHash == perceptualHash)
+            .Where(r => r.UserId == userId && r.ObversePerceptualHash == perceptualHash)
             .OrderBy(r => r.Id)
             .FirstOrDefaultAsync(cancellationToken);
 }

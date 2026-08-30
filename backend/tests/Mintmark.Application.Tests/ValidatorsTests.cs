@@ -27,6 +27,41 @@ public class ValidatorsTests
     }
 
     [Fact]
+    public void CreateHolding_Rejects_Currency_Other_Than_Base()
+    {
+        var request = ValidCoinRequest() with { PurchasePricePerUnit = new MoneyInput(33.50m, "EUR") };
+        var result = new CreateHoldingValidator(baseCurrency: "USD").Validate(request);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("base currency"));
+    }
+
+    [Fact]
+    public void CreateHolding_Base_Currency_Passes_When_Configured()
+    {
+        var result = new CreateHoldingValidator(baseCurrency: "USD").Validate(ValidCoinRequest());
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CreateHolding_Rejects_Oversized_Free_Text_Fields()
+    {
+        var request = ValidCoinRequest() with
+        {
+            Dealer = new string('d', 201),
+            StorageLocation = new string('s', 201),
+            SerialNumber = new string('n', 101),
+            Notes = new string('x', 2001),
+        };
+        var result = new CreateHoldingValidator().Validate(request);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Select(e => e.PropertyName).Should().Contain([
+            "Dealer",
+            "StorageLocation",
+            "SerialNumber",
+            "Notes"]);
+    }
+
+    [Fact]
     public void CreateHolding_GenericBarWithoutCoinTypeId_Passes()
     {
         var bar = new CreateHoldingRequest

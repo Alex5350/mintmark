@@ -20,8 +20,7 @@ public sealed class IdentificationModule : IEndpointModule
     {
         var group = app.MapGroup("/api/v1/identification")
             .WithTags("Identification")
-            .RequireAuthorization()
-            .RequireRateLimiting("identification");
+            .RequireAuthorization();
 
         group.MapPost("/submit", async (
             IFormFileCollection files,
@@ -77,9 +76,23 @@ public sealed class IdentificationModule : IEndpointModule
                 await imageStore.SaveAsync($"identifications/{userId.Value}/{bundle}/edge.jpg", request.EdgeImage, "image/jpeg", http.RequestAborted);
             }
 
-            var result = await identification.SubmitAsync(userId, request, http.RequestAborted);
+            Mintmark.Application.Dtos.SubmitIdentificationResponse result;
+            try
+            {
+                result = await identification.SubmitAsync(userId, request, http.RequestAborted);
+            }
+            catch (HttpRequestException)
+            {
+                // The hosted vision provider was unreachable or errored —
+                // retryable, not the client's fault.
+                return ApiProblem.ServiceUnavailable("The vision provider could not be reached; try again shortly.");
+            }
+            catch (SixLabors.ImageSharp.UnknownImageFormatException)
+            {
+                return ApiProblem.Unprocessable("One of the images is not decodable (JPEG, PNG, or WebP).");
+            }
             return Results.Accepted($"/api/v1/identification/{result.JobId.Value}/status", result);
-        }).DisableAntiforgery();
+        }).DisableAntiforgery().RequireRateLimiting("identification");
 
         group.MapGet("/{jobId:long}/status", async (
             long jobId,
@@ -96,7 +109,7 @@ public sealed class IdentificationModule : IEndpointModule
 
             var status = await identification.GetStatusAsync(runId, http.RequestAborted);
             return Results.Ok(status);
-        });
+        }).RequireRateLimiting("identification-status");
 
         group.MapPost("/{jobId:long}/confirm", async (
             long jobId,
@@ -125,6 +138,6 @@ public sealed class IdentificationModule : IEndpointModule
             {
                 return ApiProblem.Conflict(ex.Message);
             }
-        });
+        }).RequireRateLimiting("identification");
     }
 }

@@ -95,7 +95,7 @@ public sealed class MetalsDevProvider : IMetalPriceProvider
         var quotes = new List<DailySpotQuote>();
         foreach (var (dateText, rates) in response.Rates ?? [])
         {
-            if (!DateOnly.TryParse(dateText, out var date) || date < range.Start || date > range.End)
+            if (!DateOnly.TryParse(dateText, System.Globalization.CultureInfo.InvariantCulture, out var date) || date < range.Start || date > range.End)
             {
                 continue;
             }

@@ -56,6 +56,7 @@ public sealed class PriceCache(
         var row = await dbContext.SpotPrices
             .Where(p => p.Metal == metal && p.Currency == currency)
             .OrderByDescending(p => p.SourceTimestampUtc)
+            .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new PriceUnavailableException(
                 $"No spot price recorded yet for {metal} {currency}; the poller has not run.");

@@ -81,9 +81,10 @@ internal sealed class InMemoryRunStore : IIdentificationRunStore
         Task.CompletedTask;
 
     public Task<IdentificationRun?> FindByObversePerceptualHashAsync(
+        UserId userId,
         ulong perceptualHash,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(_runs.FirstOrDefault(r => r.ObversePerceptualHash == perceptualHash));
+        Task.FromResult(_runs.FirstOrDefault(r => r.UserId == userId && r.ObversePerceptualHash == perceptualHash));
 
     public IReadOnlyList<IdentificationRun> Runs => _runs;
 }

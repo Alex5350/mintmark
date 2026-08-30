@@ -59,6 +59,17 @@ public sealed class ImagesModule : IEndpointModule
         {
             var userId = http.RequireUserId();
 
+            // The object store is one shared bucket: the upload key must be
+            // one this user's presign call minted (uploads/{userId}/…), or a
+            // hostile client could read, re-encode, or delete any other
+            // object — including other users' photos or the catalog corpus.
+            var expectedPrefix = $"uploads/{userId.Value}/";
+            if (!request.UploadKey.StartsWith(expectedPrefix, StringComparison.Ordinal)
+                || request.UploadKey.Contains("..", StringComparison.Ordinal))
+            {
+                return ApiProblem.Unprocessable("UploadKey does not belong to this account.");
+            }
+
             // Scoped by the global filter: another user's holding 404s.
             var holdingExists = await dbContext.Holdings
                 .AnyAsync(h => h.Id == new HoldingId(request.HoldingId), http.RequestAborted);
@@ -91,14 +102,23 @@ public sealed class ImagesModule : IEndpointModule
             }
 
             // Server-side re-encode + perceptual hash, then store under the
-            // final holding-scoped key.
+            // final holding-scoped key. Non-image bytes fail decoding here —
+            // the presigned PUT cannot validate content, so this is the gate.
+            byte[] canonical;
+            try
+            {
+                canonical = ImagePreprocessor.Preprocess(bytes);
+            }
+            catch (SixLabors.ImageSharp.UnknownImageFormatException)
+            {
+                return ApiProblem.Unprocessable("Uploaded bytes are not a decodable image (JPEG, PNG, or WebP).");
+            }
+
             var finalKey = $"holdings/{request.HoldingId}/{side.ToString().ToLowerInvariant()}-{Guid.NewGuid():N}.jpg";
             await store.SaveAsync(finalKey, bytes, "image/jpeg", http.RequestAborted);
             await store.DeleteObjectAsync(request.UploadKey, http.RequestAborted);
 
-            var canonical = ImagePreprocessor.Preprocess(bytes);
-            var hasher = new PerceptualHasher();
-            var hash = await hasher.HashAsync(canonical, http.RequestAborted);
+            var hash = await new PerceptualHasher().HashAsync(canonical, http.RequestAborted);
 
             var image = CoinImage.Create(
                 new HoldingId(request.HoldingId),

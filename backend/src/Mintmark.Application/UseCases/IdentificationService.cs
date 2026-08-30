@@ -57,7 +57,7 @@ public sealed class IdentificationService
         // Dedupe by perceptual hash: identical-looking submissions return the
         // original run instead of starting a new one.
         var perceptualHash = await _hasher.HashAsync(obverse, cancellationToken);
-        var existing = await _store.FindByObversePerceptualHashAsync(perceptualHash, cancellationToken);
+        var existing = await _store.FindByObversePerceptualHashAsync(userId, perceptualHash, cancellationToken);
         if (existing is not null)
         {
             return new SubmitIdentificationResponse(existing.Id, Deduplicated: true);

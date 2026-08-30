@@ -77,11 +77,10 @@ public sealed class HoldingsModule : IEndpointModule
             }
 
             dbContext.Holdings.Add(holding);
-            await dbContext.SaveChangesAsync(http.RequestAborted);
 
-            var response = new CreateHoldingResponse(holding.Id, Created: true);
-            var body = JsonSerializer.Serialize(response, ResponseJson);
-
+            // One transaction: holding + idempotency record commit together,
+            // so a crash or concurrent duplicate cannot leave a holding that
+            // the replay check will never see.
             if (!string.IsNullOrWhiteSpace(idempotencyKey))
             {
                 dbContext.IdempotencyRecords.Add(new IdempotencyRecord
@@ -89,12 +88,34 @@ public sealed class HoldingsModule : IEndpointModule
                     UserId = userId.Value,
                     IdempotencyKey = idempotencyKey,
                     Endpoint = endpoint,
-                    ResponseBody = body,
+                    ResponseBody = JsonSerializer.Serialize(new CreateHoldingResponse(holding.Id, Created: true), ResponseJson),
                     StatusCode = StatusCodes.Status201Created,
                     CreatedAtUtc = DateTimeOffset.UtcNow,
                 });
+            }
+
+            try
+            {
                 await dbContext.SaveChangesAsync(http.RequestAborted);
             }
+            catch (DbUpdateException) when (!string.IsNullOrWhiteSpace(idempotencyKey))
+            {
+                // A concurrent request with the same key won the unique
+                // (user, key, endpoint) race — its holding stands; replay
+                // the stored response verbatim.
+                dbContext.ChangeTracker.Clear();
+                var winner = await dbContext.IdempotencyRecords
+                    .Where(r => r.UserId == userId.Value && r.IdempotencyKey == idempotencyKey && r.Endpoint == endpoint)
+                    .FirstOrDefaultAsync(http.RequestAborted);
+                if (winner is not null)
+                {
+                    http.Response.Headers["Idempotent-Replay"] = "true";
+                    return Results.Text(winner.ResponseBody, "application/json", Encoding.UTF8, winner.StatusCode);
+                }
+                throw;
+            }
+
+            var body = JsonSerializer.Serialize(new CreateHoldingResponse(holding.Id, Created: true), ResponseJson);
 
             return Results.Text(body, "application/json", Encoding.UTF8, StatusCodes.Status201Created);
         });
@@ -115,6 +136,7 @@ public sealed class HoldingsModule : IEndpointModule
 
             var query = dbContext.Holdings
                 .Include(h => h.Revisions)
+                .AsNoTracking()
                 .OrderByDescending(h => h.PurchasedAtUtc)
                 .ThenByDescending(h => h.Id)
                 .AsQueryable();
@@ -212,6 +234,10 @@ public sealed class HoldingsModule : IEndpointModule
             {
                 errors[nameof(request.Reason)] = ["A revision reason is required."];
             }
+            else if (request.Reason.Length > 500)
+            {
+                errors[nameof(request.Reason)] = ["A revision reason is at most 500 characters."];
+            }
 
             var quantity = request.Quantity ?? holding.EffectiveQuantity;
             if (quantity < 1)
@@ -219,10 +245,23 @@ public sealed class HoldingsModule : IEndpointModule
                 errors[nameof(request.Quantity)] = ["Quantity must be at least 1."];
             }
 
-            var price = request.PurchasePricePerUnit is null
-                ? holding.EffectivePurchasePricePerUnit
-                : new Money(request.PurchasePricePerUnit.Amount, request.PurchasePricePerUnit.Currency);
-            if (price.Amount < 0m)
+            var price = holding.EffectivePurchasePricePerUnit;
+            if (request.PurchasePricePerUnit is { } input)
+            {
+                // Revisions revalue in the holding's original currency; the
+                // domain forbids cross-currency revisions (and the rollup
+                // cannot sum across units).
+                if (!string.Equals(input.Currency, holding.EffectivePurchasePricePerUnit.Currency.ToString(), StringComparison.OrdinalIgnoreCase))
+                {
+                    errors[nameof(request.PurchasePricePerUnit)] =
+                        ["Purchase currency cannot change across revisions; record a new holding instead."];
+                }
+                else
+                {
+                    price = new Money(input.Amount, input.Currency);
+                }
+            }
+            if (request.PurchasePricePerUnit is { Amount: < 0m })
             {
                 errors[nameof(request.PurchasePricePerUnit)] = ["Purchase price cannot be negative."];
             }
@@ -232,7 +271,14 @@ public sealed class HoldingsModule : IEndpointModule
                 return ApiProblem.Validation(errors);
             }
 
-            _ = holding.AppendRevision(quantity, price, request.Reason);
+            try
+            {
+                _ = holding.AppendRevision(quantity, price, request.Reason);
+            }
+            catch (ArgumentException ex)
+            {
+                return ApiProblem.Unprocessable(ex.Message);
+            }
             await dbContext.SaveChangesAsync(http.RequestAborted);
             return Results.NoContent();
         });
@@ -305,6 +351,12 @@ public sealed class HoldingsModule : IEndpointModule
             }
             catch (FormatException)
             {
+                return false;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // Ticks outside DateTimeOffset's range (a valid integer but
+                // not a valid instant) must not 500 the list endpoint.
                 return false;
             }
         }

@@ -47,8 +47,13 @@ public interface IIdentificationRunStore
     /// <summary>Persists changes to a run (e.g. a recorded confirmation).</summary>
     Task SaveAsync(IdentificationRun run, CancellationToken cancellationToken = default);
 
-    /// <summary>Finds a prior run with the same obverse perceptual hash, or null (dedupe).</summary>
+    /// <summary>
+    /// Finds this user's prior run with the same obverse perceptual hash, or
+    /// null (dedupe). Dedupe is user-scoped: another user's identical photo
+    /// must not surface (their run would 404 for the caller anyway).
+    /// </summary>
     Task<IdentificationRun?> FindByObversePerceptualHashAsync(
+        UserId userId,
         ulong perceptualHash,
         CancellationToken cancellationToken = default);
 }

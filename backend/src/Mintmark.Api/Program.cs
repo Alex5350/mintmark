@@ -80,7 +80,8 @@ builder.Services.AddAuthorization();
 // Validators are invoked manually in endpoints (the AspNetCore
 // auto-validation package is deprecated — see docs/versions.md).
 builder.Services.AddScoped<IValidator<RegisterRequest>, RegisterValidator>();
-builder.Services.AddScoped<IValidator<CreateHoldingRequest>, CreateHoldingValidator>();
+builder.Services.AddScoped<IValidator<CreateHoldingRequest>>(provider => new CreateHoldingValidator(
+    baseCurrency: provider.GetRequiredService<IOptions<Mintmark.Infrastructure.PriceOptions>>().Value.BaseCurrency));
 builder.Services.AddScoped<IValidator<SubmitIdentificationRequest>, SubmitIdentificationValidator>();
 
 // RFC 9457 problem details everywhere; unhandled exceptions and bare status
@@ -124,6 +125,35 @@ builder.Services.AddRateLimiter(options =>
         {
             PermitLimit = context.User.Identity?.IsAuthenticated == true ? 25 : 5,
             Window = TimeSpan.FromHours(24),
+            QueueLimit = 0,
+        });
+    });
+
+    // Status polling is exempt from the daily submit budget: clients poll
+    // every couple of seconds while a run analyzes, and 40 polls would burn
+    // the whole day's quota. Its own per-minute ceiling still blunts abuse.
+    options.AddPolicy("identification-status", context =>
+    {
+        var user = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? context.User.FindFirst("sub")?.Value
+            ?? "anonymous";
+        return RateLimitPartition.GetFixedWindowLimiter(user, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 120,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+        });
+    });
+
+    // Public, unauthenticated reads that do real work per request (trigram
+    // search over the whole catalog) get a per-IP ceiling.
+    options.AddPolicy("public-read", context =>
+    {
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 60,
+            Window = TimeSpan.FromMinutes(1),
             QueueLimit = 0,
         });
     });

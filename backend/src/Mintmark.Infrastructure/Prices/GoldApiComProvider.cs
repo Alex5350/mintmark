@@ -64,7 +64,7 @@ public sealed class GoldApiComProvider : IMetalPriceProvider
         var price = await _http.GetFromJsonAsync<PriceResponse>($"price/{symbol}", cancellationToken)
             ?? throw new InvalidOperationException("gold-api.com price returned an empty body.");
 
-        var timestamp = DateTimeOffset.TryParse(price.UpdatedAt, out var parsed) ? parsed : _clock.GetUtcNow();
+        var timestamp = DateTimeOffset.TryParse(price.UpdatedAt, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsed) ? parsed : _clock.GetUtcNow();
         var mid = new Money(price.Price, "USD");
         return new ProviderQuote(mid, Bid: mid, Ask: mid, ProviderName, timestamp);
     }

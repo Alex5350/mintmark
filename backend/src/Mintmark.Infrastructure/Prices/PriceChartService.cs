@@ -78,6 +78,7 @@ public sealed class PriceChartService(MintmarkDbContext dbContext, PriceOptions 
             var ticks = await dbContext.SpotPrices
                 .Where(p => p.Metal == metal && p.Currency == currency && p.SourceTimestampUtc >= since)
                 .OrderBy(p => p.SourceTimestampUtc)
+                .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
             if (ticks.Count == 0)
@@ -99,7 +100,8 @@ public sealed class PriceChartService(MintmarkDbContext dbContext, PriceOptions 
         var closes = await dbContext.SpotPriceDaily
             .Where(d => d.Metal == metal && d.Currency == currency && d.Date >= start && d.Date <= end)
             .OrderBy(d => d.Date)
-            .ToListAsync(cancellationToken);
+            .AsNoTracking()
+                .ToListAsync(cancellationToken);
 
         if (closes.Count == 0)
         {
@@ -155,7 +157,8 @@ public sealed class PriceChartService(MintmarkDbContext dbContext, PriceOptions 
     {
         var rows = await dbContext.SpotPriceDaily
             .Where(d => d.Metal == metal && d.Currency == currency && d.Date >= start && d.Date <= end)
-            .ToListAsync(cancellationToken);
+            .AsNoTracking()
+                .ToListAsync(cancellationToken);
 
         return rows.ToDictionary(d => d.Date, d => d.Close.Amount);
     }
@@ -196,21 +199,24 @@ public sealed class PriceChartService(MintmarkDbContext dbContext, PriceOptions 
         for (var i = 0; i < threshold - 2; i++)
         {
             var nextStart = (int)Math.Floor((i + 1) * every) + 1;
-            var nextEnd = Math.Min((int)Math.Floor((i + 2) * every) + 1, points.Count - 1);
+            var nextEnd = i == threshold - 3
+                ? points.Count
+                : Math.Min((int)Math.Floor((i + 2) * every) + 1, points.Count - 1);
 
             double averageX = 0, averageY = 0;
-            var bucketSize = nextEnd - nextStart + 1;
-            for (var j = nextStart; j <= nextEnd; j++)
+            var bucketSize = 0;
+            for (var j = nextStart; j < nextEnd; j++)
             {
                 averageX += j;
                 averageY += (double)points[j].Close.Amount;
+                bucketSize++;
             }
 
             averageX /= bucketSize;
             averageY /= bucketSize;
 
             var rangeStart = (int)Math.Floor(i * every) + 1;
-            var rangeEnd = (int)Math.Floor((i + 1) * every) + 1;
+            var rangeEnd = i == threshold - 3 ? points.Count - 2 : (int)Math.Floor((i + 1) * every) + 1;
 
             double ax = previousIndex;
             double ay = (double)points[previousIndex].Close.Amount;

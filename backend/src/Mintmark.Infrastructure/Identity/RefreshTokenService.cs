@@ -89,7 +89,23 @@ public sealed class RefreshTokenService(
         var user = await userManager.FindByIdAsync(record.UserId.ToString(System.Globalization.CultureInfo.InvariantCulture))
             ?? throw new InvalidRefreshTokenException("Refresh token belongs to a deleted account.");
 
-        record.ConsumedAtUtc = now;
+        // Claim the token atomically: two concurrent refreshes presenting
+        // the same token must not both succeed (that double-spend is exactly
+        // what rotation exists to detect). The conditional update is the
+        // serialization point; the loser observed a stale ConsumedAtUtc and
+        // is treated as reuse.
+        var claimed = await dbContext.RefreshTokens
+            .Where(t => t.Id == record.Id && t.ConsumedAtUtc == null && t.RevokedAtUtc == null)
+            .ExecuteUpdateAsync(
+                propertySetters => propertySetters.SetProperty(t => t.ConsumedAtUtc, now),
+                cancellationToken);
+        if (claimed == 0)
+        {
+            await RevokeFamilyAsync(record.FamilyId, now, cancellationToken);
+            throw new InvalidRefreshTokenException(
+                "Refresh token was already used; possible theft detected — the token family has been revoked.");
+        }
+
         var (raw, hash) = Generate();
         dbContext.RefreshTokens.Add(new RefreshToken
         {
@@ -119,19 +135,13 @@ public sealed class RefreshTokenService(
 
     private async Task RevokeFamilyAsync(Guid familyId, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var family = await dbContext.RefreshTokens
+        // Single set-based update: family revocation touches every live
+        // token at once and must not be observably partial.
+        _ = await dbContext.RefreshTokens
             .Where(t => t.FamilyId == familyId && t.RevokedAtUtc == null)
-            .ToListAsync(cancellationToken);
-
-        foreach (var token in family)
-        {
-            token.RevokedAtUtc = now;
-        }
-
-        if (family.Count > 0)
-        {
-            await dbContext.SaveChangesAsync(cancellationToken);
-        }
+            .ExecuteUpdateAsync(
+                propertySetters => propertySetters.SetProperty(t => t.RevokedAtUtc, now),
+                cancellationToken);
     }
 
     private Task<RefreshToken?> FindByRawTokenAsync(string rawToken, CancellationToken cancellationToken)

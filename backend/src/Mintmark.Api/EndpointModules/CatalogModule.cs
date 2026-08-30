@@ -36,7 +36,7 @@ public sealed class CatalogModule : IEndpointModule
                 cancellationToken);
             return Results.Ok(new CatalogSearchResponse([..
                 candidates.Select(c => new CatalogCandidateResponse(c.CoinTypeId.Value, c.Score, c.DisplayName))]));
-        });
+        }).RequireRateLimiting("public-read");
 
         catalog.MapGet("/coin-types/{id:long}", async (
             long id,
@@ -102,8 +102,9 @@ public sealed class CatalogModule : IEndpointModule
             }
 
             var rows = await dbContext.Series
-                .Join(dbContext.Mints, s => s.MintId, m => m.Id, (s, m) => new { Series = s, Mint = m })
-                .GroupJoin(dbContext.CoinTypes, sm => sm.Series.Id, c => c.SeriesId, (sm, types) => new { sm.Series, sm.Mint, Count = types.Count() })
+                .AsNoTracking()
+                .Join(dbContext.Mints.AsNoTracking(), s => s.MintId, m => m.Id, (s, m) => new { Series = s, Mint = m })
+                .GroupJoin(dbContext.CoinTypes.AsNoTracking(), sm => sm.Series.Id, c => c.SeriesId, (sm, types) => new { sm.Series, sm.Mint, Count = types.Count() })
                 .OrderBy(x => x.Series.Name)
                 .ToListAsync(cancellationToken);
 
@@ -124,6 +125,7 @@ public sealed class CatalogModule : IEndpointModule
             }
 
             var mints = await dbContext.Mints
+                .AsNoTracking()
                 .OrderBy(m => m.Name)
                 .ToListAsync(cancellationToken);
 

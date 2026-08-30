@@ -63,6 +63,22 @@ public class IdentificationServiceTests
     }
 
     [Fact]
+    public async Task Submit_Does_Not_Deduplicate_Across_Users()
+    {
+        var obverse = new byte[20_000];
+
+        var first = await Service.SubmitAsync(FixtureCoins.OwnerId, RequestFor(obverse));
+        var second = await Service.SubmitAsync(new UserId(FixtureCoins.OwnerId.Value + 1), RequestFor(obverse));
+
+        // Same photo, different collector: a fresh run, not the other user's
+        // (whose run id would 404 for the caller anyway) — the vision
+        // provider runs and a second run is persisted.
+        second.Deduplicated.Should().BeFalse();
+        _store.Runs.Should().HaveCount(2);
+        _identifier.CallCount.Should().Be(2);
+    }
+
+    [Fact]
     public async Task Confirm_RecordsDecision_ExactlyOnce()
     {
         var response = await Service.SubmitAsync(FixtureCoins.OwnerId, RequestFor(new byte[20_000]));
