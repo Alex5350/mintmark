@@ -31,6 +31,8 @@ export function AllocationChart() {
   const rollupQuery = useQuery({
     queryKey: ["portfolio", "rollup"],
     queryFn: api.portfolio.rollup,
+    // The dashboard copy promises 30-second refreshes while the tab is open.
+    refetchInterval: 30_000,
   });
 
   const slices: Slice[] = (rollupQuery.data?.byMetal ?? []).map((entry) => {

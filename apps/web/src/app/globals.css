@@ -24,7 +24,7 @@
   --mm-platinum: #c8d0dc;
   --mm-palladium: #9fb3c8;
   --mm-positive: #3fb68b;
-  --mm-negative: #e5484d;
+  --mm-negative: #ee5d62; /* >=5:1 on surface — small error text is AA */
   --mm-warning: #e0a32e;
   --mm-focus: #7ab8ff;
 }
@@ -39,7 +39,7 @@
   --mm-text-muted: #5a6472;
   --mm-gold: #8a6d14;
   --mm-gold-soft: #a5841e;
-  --mm-silver: #6b7480;
+  --mm-silver: #5f6873; /* >=4.6:1 on near-white for badge/text use */
   --mm-platinum: #5d6b7c;
   --mm-palladium: #4e6076;
   --mm-positive: #187a57;
@@ -124,6 +124,7 @@
 }
 
 .coin-flip-face {
+  position: relative;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }

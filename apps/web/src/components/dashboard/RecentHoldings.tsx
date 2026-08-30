@@ -11,8 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function RecentHoldings() {
   const holdingsQuery = useQuery({
-    queryKey: ["holdings", "list"],
-    queryFn: api.holdings.list,
+    queryKey: ["holdings", "recent"],
+    queryFn: () => api.holdings.list(5),
     select: (holdings) => holdings.slice(0, 5),
   });
 

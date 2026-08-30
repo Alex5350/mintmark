@@ -3,7 +3,6 @@
 import {
   Children,
   cloneElement,
-  isValidElement,
   useId,
   type InputHTMLAttributes,
   type ReactElement,
@@ -45,10 +44,8 @@ export interface FieldProps {
  */
 export function Field({ label, children, hint, error, className }: FieldProps) {
   const id = useId();
+  // Children.only throws on non-single children — no extra check needed.
   const child = Children.only(children);
-  if (!isValidElement(child)) {
-    throw new Error("Field expects a single element child");
-  }
   const messageIds = cn(
     error ? `${id}-error` : undefined,
     hint ? `${id}-hint` : undefined,

@@ -161,13 +161,20 @@ export const api = {
   },
 
   holdings: {
-    /** Cursor-paginated upstream — follows every page so callers see one list. */
-    async list(): Promise<HoldingListItem[]> {
+    /**
+     * Cursor-paginated upstream — follows every page so callers see one
+     * list. `take` stops early for widgets that need only the newest rows
+     * (the dashboard's five recent cards should not pay for the whole
+     * collection).
+     */
+    async list(take?: number): Promise<HoldingListItem[]> {
       const items: HoldingListItem[] = [];
       let cursor: string | undefined;
       do {
+        const limit = take !== undefined ? Math.min(take - items.length, 100) : 100;
+        if (limit <= 0) break;
         const page = await request<HoldingListResponse>((headers) =>
-          client.GET("/api/v1/holdings", { params: { query: { limit: 100, cursor } }, headers }),
+          client.GET("/api/v1/holdings", { params: { query: { limit, cursor } }, headers }),
         );
         items.push(...page.items);
         cursor = page.nextCursor ?? undefined;

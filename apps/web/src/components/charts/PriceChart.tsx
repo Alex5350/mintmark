@@ -8,7 +8,7 @@
  * carries an aria-label summarizing trend + last price.
  */
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   Area,
   AreaChart,
@@ -105,6 +105,9 @@ export function PriceChart({ metal = "Gold", className }: PriceChartProps) {
   const seriesQuery = useQuery<ChartSeries | RatioPoint[]>({
     queryKey: ["chart", showRatio ? "ratio" : metal, range],
     queryFn: () => (showRatio ? api.prices.ratio(range) : api.prices.chart(metal, range)),
+    // Range/metal toggles keep the previous series mounted instead of
+    // flashing a full skeleton on every click.
+    placeholderData: keepPreviousData,
   });
 
   const points = useMemo(
@@ -171,7 +174,7 @@ export function PriceChart({ metal = "Gold", className }: PriceChartProps) {
       </div>
 
       {seriesQuery.isPending ? (
-        <Skeleton className="h-72 w-full md:h-96" aria-label="Loading chart" />
+        <Skeleton className="h-72 w-full md:h-96" role="status" aria-label="Loading chart" />
       ) : seriesQuery.isError ? (
         <EmptyState
           title="Chart unavailable"

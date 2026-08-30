@@ -81,7 +81,7 @@ export function SpotTicker() {
     >
       <div className="mx-auto flex min-h-11 w-full max-w-6xl flex-wrap items-center gap-x-6 gap-y-1 px-4 py-2">
         {quotesQuery.isPending ? (
-          <div className="flex items-center gap-6" aria-label="Loading spot prices">
+          <div className="flex items-center gap-6" role="status" aria-label="Loading spot prices">
             <Skeleton className="h-4 w-36" />
             <Skeleton className="h-4 w-36" />
           </div>

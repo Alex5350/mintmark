@@ -42,7 +42,15 @@ function useShot() {
     setShot({ file, previewUrl });
   }
 
-  return [shot, set] as const;
+  function clear() {
+    if (previousUrl.current) {
+      URL.revokeObjectURL(previousUrl.current);
+      previousUrl.current = null;
+    }
+    setShot(null);
+  }
+
+  return [shot, set, clear] as const;
 }
 
 function ShotSlot({
@@ -202,8 +210,8 @@ function CandidateRow({
 }
 
 export function IdentifyPanel({ className }: { className?: string }) {
-  const [obverse, setObverse] = useShot();
-  const [reverse, setReverse] = useShot();
+  const [obverse, setObverse, clearObverse] = useShot();
+  const [reverse, setReverse, clearReverse] = useShot();
   const [jobId, setJobId] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
@@ -236,6 +244,15 @@ export function IdentifyPanel({ className }: { className?: string }) {
   const bothShots = obverse !== null && reverse !== null;
   const statusDone = job != null && !identificationStatusPolling(job.status);
 
+  const reset = () => {
+    setJobId(null);
+    clearObverse();
+    clearReverse();
+    submit.reset();
+    confirm.reset();
+    void queryClient.removeQueries({ queryKey: ["identification"] });
+  };
+
   return (
     <div className={cn("flex flex-col gap-4", className)}>
       <Card>
@@ -263,7 +280,7 @@ export function IdentifyPanel({ className }: { className?: string }) {
           <div>
             <Button
               variant="goldAccent"
-              disabled={!bothShots || submit.isPending || jobId !== null}
+              disabled={!bothShots || submit.isPending || (jobId !== null && !statusDone)}
               onClick={() => submit.mutate()}
             >
               {submit.isPending ? "Submitting…" : jobId ? "Job submitted" : "Identify"}
@@ -282,6 +299,11 @@ export function IdentifyPanel({ className }: { className?: string }) {
           <CardHeader className="flex-row items-center justify-between gap-2">
             <CardTitle>Job {jobId}</CardTitle>
             <div className="flex items-center gap-2">
+              {statusDone ? (
+                <Button variant="ghost" size="sm" onClick={reset}>
+                  New identification
+                </Button>
+              ) : null}
               {job ? <Badge tone="neutral">{job.providerLabel}</Badge> : null}
               {job ? (
                 <Badge

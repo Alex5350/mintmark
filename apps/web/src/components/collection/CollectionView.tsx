@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export function CollectionView() {
   const holdingsQuery = useQuery({
     queryKey: ["holdings", "list"],
-    queryFn: api.holdings.list,
+    queryFn: () => api.holdings.list(),
   });
 
   if (holdingsQuery.isPending) {

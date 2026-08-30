@@ -32,8 +32,9 @@ export function HoldingDetail({ holdingId }: { holdingId: string }) {
 
   const valuationQuery = useQuery({
     queryKey: ["holdings", "valuation", holdingId],
+    // No data dependency on the detail row — fetch in parallel instead of
+    // serializing behind it.
     queryFn: () => api.holdings.valuation(holdingId),
-    enabled: holdingQuery.isSuccess,
     // Generic holdings 422 (no cataloged coin type → no AMW); network blips retry once.
     retry: 1,
   });
