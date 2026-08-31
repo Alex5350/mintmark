@@ -1,37 +1,59 @@
 # Mintmark
 
-**A serious collector's tracker for gold and silver: catalog bullion, coins, and bars; photograph a coin and get grounded catalog identification with candidates and confidence; watch both melt and collectible value against live, source-attributed spot prices.** Built as a production-grade monorepo: ASP.NET Core minimal APIs on .NET 10, PostgreSQL 18 with pgvector, a Next.js 16 web client, and an Expo SDK 57 mobile client with guided two-shot coin capture.
+**A serious collector's tracker for gold and silver: catalog bullion, coins and bars;
+photograph a coin for grounded catalog identification with candidates and confidence;
+watch both melt and collectible value against live, source-attributed spot prices.**
 
-<p align="center"><img src="docs/assets/dashboard.png" alt="Mintmark dashboard: spot ticker, portfolio rollup, collection" width="880"></p>
+[![CI](https://github.com/Alex5350/mintmark/actions/workflows/ci.yml/badge.svg)](https://github.com/Alex5350/mintmark/actions/workflows/ci.yml)
+
+> **Two ways to read this page.** Not an engineer? Everything below the pictures stays in
+> plain language: the problem, the pictures, and what the product delivers; jargon links to
+> the [glossary](docs/GLOSSARY.md). Engineer? The deep dive lives in
+> [TECHNICAL.md](TECHNICAL.md): architecture, flows, and every major decision mapped back
+> to the business problem it solves.
+
+## The problem
+
+A serious collector tracks gold and silver across scattered sources: dealer sites for
+prices, a spreadsheet for the collection, mint and catalog pages for specifications, and
+memory for what a coin is worth. Three failures follow. A price is pasted into the
+spreadsheet and quietly ages until the record is wrong. A valuation is guessed from a
+number someone remembers, so an insurance record or a sale decision rests on nothing
+checkable. And a photographed coin gets identified by eyeballing search results, with no
+record of why the match was made or how confident it was.
+
+Mintmark gives that collector one place where every figure says where it came from, every
+identification is grounded in catalog evidence or says so, and stale prices are flagged
+end to end, never silent.
 
 ## The product in screenshots
 
-| Landing | Dashboard: live rollup |
-|---|---|
-| ![Landing](docs/assets/07-landing-dark.png) | ![Dashboard](docs/assets/dashboard.png) |
+| Land in the dark-first app | See the whole collection valued live |
+|:---:|:---:|
+| ![Landing](docs/assets/07-landing-dark.png) | ![Dashboard: spot ticker, portfolio rollup, collection](docs/assets/dashboard.png) |
 
-| Collection: gallery + dense table | Holding detail: provenance + real coin photography |
-|---|---|
+| Browse the collection as a gallery or a dense table | Open a holding: provenance and real coin photography |
+|:---:|:---:|
 | ![Collection](docs/assets/mintmark-web-collection.png) | ![Holding detail](docs/assets/mintmark-web-holding-detail.png) |
 
-| Prices: live charts + Au:Ag ratio | Identify: capture → candidates → confirm |
-|---|---|
+| Watch spot prices and the gold-to-silver ratio over time | Photograph a coin, review candidates, confirm the match |
+|:---:|:---:|
 | ![Prices](docs/assets/mintmark-web-prices.png) | ![Identify](docs/assets/mintmark-web-identify.png) |
 
-The mobile client (Expo SDK 57), captured on a real iOS simulator run;
-guided two-shot capture, live portfolio rollup and per-holding valuation,
-biometric lock and durable offline queue:
+The mobile client is the camera-first companion: guided two-shot capture, live portfolio
+rollup and per-holding valuation, biometric lock and a durable offline queue. All six
+screenshots below come from a real iOS simulator run against the live API.
 
-| Mobile - Collection: rollup + live values | Mobile - Holding detail: premium factors |
-|---|---|
+| Check the rollup and live values from anywhere | See the premium factors behind each holding |
+|:---:|:---:|
 | ![Mobile collection](docs/assets/mintmark-mobile-collection.png) | ![Mobile holding detail](docs/assets/mintmark-mobile-holding-detail.png) |
 
-| Mobile - Prices: spot + Au:Ag ratio | Mobile - Identify: guided capture |
-|---|---|
+| Spot and the Au:Ag ratio on the phone | Guided two-shot capture, with glare and focus checks |
+|:---:|:---:|
 | ![Mobile prices](docs/assets/mintmark-mobile-prices.png) | ![Mobile identify](docs/assets/mintmark-mobile-identify.png) |
 
-| Mobile - Sign in | Mobile - Settings: security + sync |
-|---|---|
+| Sign in; tokens live in the device secure store | Control the biometric lock and offline queue |
+|:---:|:---:|
 | ![Mobile login](docs/assets/mintmark-mobile-login.png) | ![Mobile settings](docs/assets/mintmark-mobile-settings.png) |
 
 Coin imagery in the app is **real photography, freely licensed**: sourced
@@ -43,9 +65,26 @@ without a freely-licensed photograph fall back to original rendered
 bullion art (metallic sheen, reeded edges, generic legends; no protected
 mint designs), so the retrieval pipeline always has imagery.
 
-Every number carries its provenance: the dashboard's +67.7% is computed
-server-side against the same live spot the ticker shows, and the holding
-detail lists the exact premium factors behind the collectible estimate.
+## What it delivers
+
+- **Every number carries its provenance.** The dashboard's +67.7% is computed server-side
+  against the same live spot price the ticker shows; the holding detail lists the exact
+  premium factors behind the collectible estimate, and each spot price records the
+  provider and timestamp that served it.
+- **Identification is grounded, never auto-accepted.** Photographing a coin returns the
+  top five catalog candidates with scores; the collector confirms the match, and the
+  confirmation is written to an append-only audit trail. An identification is either
+  grounded in catalog evidence or says so.
+- **Unpublished catalog specs stay null rather than invented.** Every specification row
+  carries a source URL; disputed or unavailable figures remain null, enforced by a seed
+  validator that rejects unsourced specs.
+- **Valuations carry confidence bands and method versions.** Estimates are shown with an
+  honest uncertainty band, the plain-math [valuation method](docs/valuation.md) behind
+  them, and a version stamp, so history stays explainable after factor tables or spot
+  sources change.
+- **The app works offline and flags stale data instead of silently showing old prices.**
+  Mobile changes queue durably and sync when signal returns; when providers are down, the
+  last known good price is served flagged stale in the API, on the web, and on the phone.
 
 ## What's implemented (honestly)
 
@@ -59,76 +98,44 @@ detail lists the exact premium factors behind the collectible estimate.
 | Melt + rules-based collectible valuation with provenance | ✅ itemized premium factors, confidence bands, method versioning |
 | AI identification: capture → vision contract → hybrid retrieval → confirm | ✅ hosted adapters (OpenAI/Gemini) + labeled deterministic offline evaluator; append-only audit runs |
 | Web client: dashboard, gallery + table collection, coin flip, identify | ✅ dark-first, WCAG-checked, tabular numerals |
-| Mobile: guided capture, offline queue, biometric gate | ✅ scaffold-verified (typecheck + expo-doctor); **not device-tested** (see open questions) |
+| Mobile: guided capture, offline queue, biometric gate | ✅ run end-to-end on an iOS simulator; camera capture and biometric unlock **not device-tested** (see [open questions](docs/open-questions.md)) |
 | Comparables-based valuation (Phase 2), learned model (Phase 3) | ❌ deliberately not built (ADR 0007) |
 
-## Architecture
+## How the engineering solves it
 
-```mermaid
-flowchart LR
-    subgraph Clients
-        WEB[Next.js 16 web]
-        MOB[Expo 57 mobile]
-    end
-    subgraph Platform
-        API[ASP.NET Core API\nminimal APIs + OpenAPI]
-        Q[Quartz.NET jobs\nPostgres job store]
-        DB[(PostgreSQL 18\npgvector + pg_trgm)]
-        OBJ[(S3-compatible storage\nMinIO local)]
-        CACHE[(two-tier price cache)]
-    end
-    subgraph External
-        P1[metals.dev]
-        P2[gold-api.com]
-        V[Hosted vision model\noptional]
-    end
-    WEB -->|generated TS client| API
-    MOB -->|generated TS client| API
-    API --> DB
-    API -->|presigned URLs| OBJ
-    Q --> P1
-    Q --> P2
-    Q --> DB
-    API --> CACHE --> DB
-    Q -->|identification| V
-```
+Plain-terms bridge; each item links to the full story in [TECHNICAL.md](TECHNICAL.md).
 
-Full document: [docs/architecture.md](docs/architecture.md) · decisions: [docs/adr/](docs/adr/) (9 ADRs).
+- **Identifying a coin from a photo could easily become confident guessing.** Guided
+  two-shot capture (both sides of the coin, with glare and focus gates) feeds a retrieval
+  pipeline over the sourced catalog; the collector confirms one of the top five
+  candidates, so nothing is ever auto-accepted.
+  ([the identification flow](TECHNICAL.md#request-and-data-flow))
+- **A number without a source is useless for insurance or sale decisions.** The data model
+  enforces provenance end to end: catalog specs carry a source URL or stay null, prices
+  record their provider, valuations record their method version and the spot they derived
+  from.
+  ([provenance-enforced data model](TECHNICAL.md#how-the-tech-solves-the-business-problem))
+- **A machine-learned valuation with no training data would look precise and be wrong.**
+  Valuation runs as honest rules: plain multiplicative factors (mintage, finish, grade,
+  demand, age) with confidence bands, whose [plain math](docs/valuation.md) is frozen by
+  golden tests so any change is deliberate.
+  ([valuation rules first](TECHNICAL.md#how-the-tech-solves-the-business-problem))
+- **Collectors check values in basement safe rooms with no signal.** The mobile client is
+  offline-first: failed changes land in a durable queue and sync later, and stale prices
+  are flagged in every client rather than silently shown.
+  ([offline-first engineering](TECHNICAL.md#how-the-tech-solves-the-business-problem))
 
-Animated system and identification flows (rendered with
-[FlowInk](https://github.com/Alex5350/flowink), CSS-only animation,
-GitHub-safe):
+<details>
+<summary><b>For developers: quickstart</b></summary>
 
-<p align="center">
-  <img src="docs/assets/architecture.svg" alt="Mintmark architecture: web and mobile clients over one ASP.NET Core API, PostgreSQL 18 with pgvector, S3-compatible storage, spot providers with failover, and the vision pipeline" width="860">
-</p>
-
-<p align="center">
-  <img src="docs/assets/identification.svg" alt="Mintmark identification pipeline: capture gates, preprocess + perceptual hash, vision contract, hybrid retrieval, user confirmation, append-only audit" width="860">
-</p>
-
-## Tech stack (exact, verified; see [docs/versions.md](docs/versions.md))
-
-| Layer | Choice | Version |
-|---|---|---|
-| Backend | ASP.NET Core minimal APIs, .NET 10 LTS | SDK 10.0.400 / runtime 10.0.11 |
-| ORM / DB | EF Core 10 + Npgsql · PostgreSQL 18 + pgvector + pg_trgm | Npgsql.EF 10.0.3 · pgvector/pg18 |
-| Jobs | Quartz.NET (Postgres store) | 3.19.1 |
-| Auth | Identity + Argon2id + JWT + rotating refresh | NetDevPack Argon2 7.1.2 |
-| API docs | Microsoft.AspNetCore.OpenApi + Scalar at `/docs` | 10.0.11 · 2.17.1 |
-| Storage | S3-compatible (MinIO local) | AWSSDK.S3 4.0.102.4 |
-| Telemetry | OpenTelemetry → OTLP | 1.18.0 |
-| Web | Next.js App Router + React 19 + Tailwind v4 | 16.3.3 · 19.2.8 |
-| Mobile | Expo Router + SecureStore + SQLite queue | SDK 57.0.17 / RN 0.86.3 |
-
-## Prerequisites
+Prerequisites:
 
 - Docker (any runtime: Docker Desktop, colima, OrbStack); `docker ps` works
 - .NET SDK 10.0.400+: `brew install dotnet-sdk` / [windows/linux downloads](https://dotnet.microsoft.com/download/dotnet/10.0)
 - Node 22 LTS + pnpm 11: `brew install node && corepack enable`
 - (mobile only) Expo CLI + Xcode/Android toolchains: [Expo docs](https://docs.expo.dev/)
 
-## Quickstart (clean machine, ~10 minutes)
+Quickstart (clean machine, ~10 minutes):
 
 ```bash
 git clone https://github.com/Alex5350/mintmark && cd mintmark
@@ -146,41 +153,26 @@ metals.dev key (free, 100 req/mo); **without keys everything else works**:
 identification runs the labeled offline evaluator and prices seed from
 fixture history, flagged stale.
 
-## Environment variables
+Every environment variable is documented in [.env.example](.env.example):
+name, default, and how to obtain each key. Nothing real is committed.
 
-Every variable is documented in [.env.example](.env.example): name, default,
-and how to obtain each key. Nothing real is committed.
+</details>
 
-## Running pieces independently
+## Documentation
 
-- API only: `just api` → http://localhost:5100, Scalar at `/docs`
-- Web only: `just web` (needs API for data; renders empty states without)
-- Mobile: `cd apps/mobile && pnpm expo start`; usage, offline behavior, and EAS build/submit in [apps/mobile/README.md](apps/mobile/README.md)
-- Tests: `just test-backend` · `just test-mobile` (typecheck) · single test: `dotnet test --filter "FullyQualifiedName~GoldenValuation"`
-
-## Common problems
-
-| Symptom | Fix |
-|---|---|
-| `connection refused :5434` | `docker compose up -d db`; check `docker ps` shows mintmark-db healthy |
-| NU1507 multi-source restore errors | use the repo's nuget.config (it clears machine sources); never add private feeds |
-| Migration fails `type "vector" does not exist` | `just migrate` applies the extension migration first; ensure you're on the pgvector image, not stock postgres |
-| Login 401 immediately | JWT signing key missing/short: generate `openssl rand -base64 48` into .env |
-| Prices always stale | no provider key set: offline fixture prices are labeled stale by design |
-| pnpm workspace resolution errors on mobile | run `pnpm install` from the repo root, not apps/mobile |
-
-## Repository walkthrough
-
-```
-backend/    Mintmark.sln - Domain (zero deps) → Application (ports/use cases)
-            → Infrastructure (EF, providers, storage, jobs) → Api (composition only)
-apps/web    Next.js 16 client (Server Components default)
-apps/mobile Expo SDK 57 client
-packages/   api-client (generated from OpenAPI), domain-types, ui-tokens
-prompts/    versioned vision prompt templates (identify-v1)
-docs/       architecture, domain model, ADRs, valuation, runbook, versions
-backend/seed/catalog.json   the sourced catalog (with _provenance block)
-```
+| Document | What it covers | Audience |
+|---|---|---|
+| [TECHNICAL.md](TECHNICAL.md) | Architecture, request flow, decisions mapped to business problems, stack rationale, testing | Engineers |
+| [docs/GLOSSARY.md](docs/GLOSSARY.md) | Collector and engineering terms, in plain English and precisely | Everyone |
+| [docs/architecture.md](docs/architecture.md) | The phase 0 architecture: layers, pipelines, observability | Engineers |
+| [docs/adr/](docs/adr/) | Nine architecture decision records | Engineers |
+| [docs/valuation.md](docs/valuation.md) | Melt and collectible valuation, the plain math | Everyone |
+| [docs/ai-pipeline.md](docs/ai-pipeline.md) | The identification pipeline, stage by stage | Engineers |
+| [docs/security.md](docs/security.md) | OWASP ASVS L2 checklist, done and deferred | Engineers |
+| [docs/runbook.md](docs/runbook.md) | Deploy, provider outages, key rotation | Operators |
+| [docs/open-questions.md](docs/open-questions.md) | Honest inventory of gaps and deferred decisions | Everyone |
+| [docs/versions.md](docs/versions.md) | Verified package versions | Engineers |
+| [apps/mobile/README.md](apps/mobile/README.md) | The mobile client: setup, usage, offline behavior | Engineers |
 
 Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) · License: MIT
 ([LICENSE](LICENSE)).
