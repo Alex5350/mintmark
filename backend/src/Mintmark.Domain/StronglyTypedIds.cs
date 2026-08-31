@@ -17,6 +17,12 @@ public readonly record struct HoldingId
     /// <summary>Gets the raw identifier value.</summary>
     public long Value { get; }
 
+    /// <summary>Ordering by backing value, for keyset pagination over holdings.</summary>
+    public static bool operator <(HoldingId left, HoldingId right) => left.Value < right.Value;
+
+    /// <summary>Ordering by backing value, for keyset pagination over holdings.</summary>
+    public static bool operator >(HoldingId left, HoldingId right) => left.Value > right.Value;
+
     /// <inheritdoc />
     public override string ToString() => Value.ToString(CultureInfo.InvariantCulture);
 }

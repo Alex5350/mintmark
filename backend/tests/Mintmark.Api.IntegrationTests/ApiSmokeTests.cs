@@ -6,9 +6,10 @@ using Xunit;
 namespace Mintmark.Api.IntegrationTests;
 
 /// <summary>
-/// One factory + one Testcontainers Postgres for the whole class — Quartz's
-/// static log provider captures the first factory's logger, so per-test
-/// factories would dispose it under later tests.
+/// One factory + one Testcontainers Postgres for the whole integration suite
+/// (shared as a collection fixture): Quartz's static log provider captures
+/// the first factory's logger, so per-test factories would dispose it under
+/// later tests.
 /// </summary>
 public sealed class ApiFixture : IAsyncLifetime
 {
@@ -51,10 +52,11 @@ public sealed class ApiFixture : IAsyncLifetime
 }
 
 /// <summary>
-/// Full-stack smoke against real PostgreSQL via Testcontainers — never the
+/// Full-stack smoke against real PostgreSQL via Testcontainers, never the
 /// in-memory provider. Real Postgres via Docker (colima locally).
 /// </summary>
-public sealed class ApiSmokeTests(ApiFixture fixture) : IClassFixture<ApiFixture>
+[Collection("api")]
+public sealed class ApiSmokeTests(ApiFixture fixture)
 {
     private HttpClient Client => fixture.Factory.CreateClient();
 
@@ -111,7 +113,7 @@ public sealed class ApiSmokeTests(ApiFixture fixture) : IClassFixture<ApiFixture
     private static string? _sharedAccessToken;
 
     /// <summary>
-    /// Registers (once) and signs in a user shared by the endpoint tests —
+    /// Registers (once) and signs in a user shared by the endpoint tests:
     /// the auth rate limiter allows 10 attempts/IP/minute, so one fresh
     /// user per test would starve the suite. Tests that consume refresh
     /// tokens must not use the shared identity.

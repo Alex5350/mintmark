@@ -101,7 +101,7 @@ public sealed class HoldingsModule : IEndpointModule
             catch (DbUpdateException) when (!string.IsNullOrWhiteSpace(idempotencyKey))
             {
                 // A concurrent request with the same key won the unique
-                // (user, key, endpoint) race — its holding stands; replay
+                // (user, key, endpoint) race; its holding stands, so replay
                 // the stored response verbatim.
                 dbContext.ChangeTracker.Clear();
                 var winner = await dbContext.IdempotencyRecords
@@ -143,10 +143,14 @@ public sealed class HoldingsModule : IEndpointModule
 
             if (cursor is not null && HoldingCursor.TryDecode(cursor, out var position))
             {
-                // Keyset continuation on the (purchased_at, id) sort key.
+                // Keyset continuation on the (purchased_at, id) sort key. The
+                // id compares as the typed value, not via .Value: EF cannot
+                // see through a value converter's member access, and the
+                // typed comparison translates to the backing bigint.
+                var lastId = new HoldingId(position.Id);
                 query = query.Where(h =>
                     h.PurchasedAtUtc < position.PurchasedAtUtc
-                    || (h.PurchasedAtUtc == position.PurchasedAtUtc && h.Id.Value < position.Id));
+                    || (h.PurchasedAtUtc == position.PurchasedAtUtc && h.Id < lastId));
             }
 
             var page = await query.Take(pageSize + 1).ToListAsync(http.RequestAborted);
