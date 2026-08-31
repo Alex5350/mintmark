@@ -157,7 +157,7 @@ anything requires updating that file in the same change.
 
 ## Testing
 
-129 backend tests across three suites, each protecting something specific:
+131 backend tests across three suites, each protecting something specific:
 
 - **46 domain tests** on zero-dependency rules: `Money` (cross-currency throws), `Weight`
   (the one conversion site, 1 ozt = 31.1034768 g), holding revision history,
@@ -167,11 +167,11 @@ anything requires updating that file in the same change.
   [ADR 0007](docs/adr/0007-valuation-rules-first.md)), premium-factor table, validators,
   prompt-catalog, and the architecture layering tests that fail the build on a dependency
   violation.
-- **11 integration tests**: WebApplicationFactory + Testcontainers against the real
+- **13 integration tests**: WebApplicationFactory + Testcontainers against the real
   `pgvector/pgvector:pg18` image (never the in-memory provider, which is banned): health,
-  register/login problem details, and the holdings isolation tests, which prove the
-  row-level filter scopes every list and cursor page to the calling user and holds even
-  with endpoint authorization removed.
+  register/login problem details, response security headers, and the holdings isolation
+  tests, which prove the row-level filter scopes every list and cursor page to the calling
+  user and holds even with endpoint authorization removed.
 
 CI runs on every push: backend tests, web lint + build, the mobile strict typecheck (the
 contract-alignment canary that once caught real drift), and the OpenAPI diff: the document

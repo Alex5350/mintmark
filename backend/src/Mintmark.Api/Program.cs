@@ -78,7 +78,7 @@ _ = builder.Services.AddMintmarkJwtAuthentication(jwtOptions);
 builder.Services.AddAuthorization();
 
 // Validators are invoked manually in endpoints (the AspNetCore
-// auto-validation package is deprecated — see docs/versions.md).
+// auto-validation package is deprecated; see docs/versions.md).
 builder.Services.AddScoped<IValidator<RegisterRequest>, RegisterValidator>();
 builder.Services.AddScoped<IValidator<CreateHoldingRequest>>(provider => new CreateHoldingValidator(
     baseCurrency: provider.GetRequiredService<IOptions<Mintmark.Infrastructure.PriceOptions>>().Value.BaseCurrency));
@@ -181,6 +181,15 @@ var app = builder.Build();
 
 // ---- Pipeline ---------------------------------------------------------------
 
+// HSTS first (docs/security.md V9): outside Development, every response
+// tells clients to stay on HTTPS. The header middleware baselines the
+// remaining security headers for all responses, error documents included.
+if (!app.Environment.IsDevelopment())
+{
+    _ = app.UseHsts();
+}
+
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
@@ -211,7 +220,7 @@ _ = app.MapGet("/health", () => Results.Ok(new { status = "ok" }))
 if (exportOpenApi)
 {
     // CI diff + client generation: self-host briefly and capture the
-    // document from the mapped endpoint — the only surface guaranteed to
+    // document from the mapped endpoint, the only surface guaranteed to
     // match what clients actually see.
     app.Urls.Add("http://127.0.0.1:5198");
     await app.StartAsync();

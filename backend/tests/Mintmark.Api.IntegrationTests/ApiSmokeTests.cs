@@ -68,6 +68,30 @@ public sealed class ApiSmokeTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task Security_Headers_Are_On_Every_Response()
+    {
+        var response = await Client.GetAsync("/health");
+
+        Assert.True(response.Headers.TryGetValues("X-Content-Type-Options", out var nosniff));
+        Assert.Equal("nosniff", nosniff!.Single());
+        Assert.True(response.Headers.TryGetValues("X-Frame-Options", out var frameOptions));
+        Assert.Equal("DENY", frameOptions!.Single());
+        Assert.True(response.Headers.TryGetValues("Referrer-Policy", out var referrerPolicy));
+        Assert.Equal("no-referrer", referrerPolicy!.Single());
+        Assert.True(response.Headers.TryGetValues("Content-Security-Policy", out var csp));
+        Assert.Equal("default-src 'none'", csp!.Single());
+    }
+
+    [Fact]
+    public async Task Hsts_Header_Is_Absent_In_Development()
+    {
+        // The test host runs in Development, and Program.cs adds HSTS only
+        // outside it; localhost development stays redirect-free.
+        var response = await Client.GetAsync("/health");
+        Assert.False(response.Headers.Contains("Strict-Transport-Security"));
+    }
+
+    [Fact]
     public async Task Register_Then_Bad_Login_Is_Clean_Unauthorized_Problem_Details()
     {
         var register = await Client.PostAsJsonAsync("/api/v1/auth/register", new
