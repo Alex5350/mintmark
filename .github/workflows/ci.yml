@@ -58,9 +58,11 @@ jobs:
       - run: pnpm build
 
   mobile:
-    # The Expo app is not device-tested in CI (no simulator budget) — but
-    # its typecheck is the contract-alignment canary that once caught real
-    # drift, so it belongs on every push.
+    # The Expo app is not device-tested in CI (no simulator budget), but its
+    # typecheck still belongs on every push: the app talks to the API through
+    # a hand-written fetch client, so this is the compile-time check on its
+    # hand-mirrored wire types. The request side of the contract is gated by
+    # the openapi-diff job below.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -81,9 +83,10 @@ jobs:
 
   openapi-diff:
     # The OpenAPI document is committed; regenerating and diffing makes
-    # breaking API changes visible in review. The generated TS client is
-    # diffed the same way — the mobile app once crashed on exactly that
-    # class of drift.
+    # breaking API changes visible in review, and the generated TS client is
+    # diffed the same way. Together they gate the request side of the
+    # contract; response shapes are hand-mirrored in the clients until
+    # response schemas land (docs/open-questions.md).
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -119,6 +122,6 @@ jobs:
         # (backend/), so the repo-root document needs the ../ prefix.
         run: |
           git diff --exit-code -- ../docs/openapi.json ../packages || {
-            echo "::error::docs/openapi.json or packages/api-client drifted — regenerate with 'just openapi' and commit so the change is reviewable"
+            echo "::error::docs/openapi.json or packages/api-client drifted; regenerate with 'just openapi' and commit so the change is reviewable"
             exit 1
           }

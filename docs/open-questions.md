@@ -88,7 +88,10 @@ Each item says what shipped instead.
 18. **The committed OpenAPI document declares no response schemas or
     security scheme** (request bodies only). The generated TS client
     therefore types requests but not responses; adding a Bearer scheme and
-    `Results<T>` typing is an API-surface-wide change.
+    `Results<T>` typing is an API-surface-wide change. Until it lands,
+    response shapes are hand-mirrored in the clients (web
+    `apps/web/src/lib/api-types.ts`, mobile `apps/mobile/lib/api.ts`);
+    ADR 0008 records the request-side/response-side split.
 19. **Production deployment posture is unset**: CORS allows only the dev
     origins, there is no `UseForwardedHeaders`, and the per-IP auth limiter
     would collapse all users behind a proxy. Needed before any real deploy.

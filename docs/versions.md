@@ -14,7 +14,7 @@ same change.
 | Microsoft.EntityFrameworkCore | 10.0.11 | aligned Aug servicing |
 | Microsoft.AspNetCore.Authentication.JwtBearer | 10.0.11 | |
 | Microsoft.AspNetCore.OpenApi | 10.0.11 | Swashbuckle deliberately absent (ADR 0002) |
-| Scalar.AspNetCore | 2.17.1 | API reference UI at `/docs` |
+| Scalar.AspNetCore | 2.17.2 | API reference UI at `/docs` |
 | FluentValidation | 12.1.1 | **manual validation only**: the AspNetCore auto-validation package is officially deprecated; validators are invoked in endpoints |
 | Quartz.Extensions.DependencyInjection / Serialization.Json | **3.19.1** | 3.20.0 released 2026-08-27 with no soak; deliberately one step back |
 | TngTech.ArchUnitNET | 0.13.4 | architecture tests; NetArchTest.Rules unmaintained since 2021 |

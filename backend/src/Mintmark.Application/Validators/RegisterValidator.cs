@@ -5,10 +5,9 @@ using Mintmark.Application.Dtos;
 namespace Mintmark.Application.Validators;
 
 /// <summary>
-/// A tiny denylist of common passwords that also satisfy the length rule —
-/// length alone is not strength. Case-insensitive. Kept deliberately small:
-/// real leak-corpus screening lives in Infrastructure/Identity, this is the
-/// Application-layer backstop.
+/// A tiny denylist of common passwords that also satisfy the length rule:
+/// length alone is not strength. Case-insensitive. Kept deliberately small;
+/// this is the Application-layer backstop.
 /// </summary>
 public static class CommonPasswordDenylist
 {

@@ -16,9 +16,11 @@ duplicated; [docs/GLOSSARY.md](docs/GLOSSARY.md) defines every term this page us
 </p>
 
 The animated diagrams above (rendered with [FlowInk](https://github.com/Alex5350/flowink),
-CSS-only, GitHub-safe) are the visual companions; the Mermaid block below is the maintained
-textual version ([docs/architecture.md](docs/architecture.md) is the source document, and
-implementation changes go through ADRs).
+CSS-only, GitHub-safe; JSON sources committed alongside in
+[architecture.spec.json](docs/assets/architecture.spec.json) and
+[identification.spec.json](docs/assets/identification.spec.json)) are the visual companions;
+the Mermaid block below is the maintained textual version ([docs/architecture.md](docs/architecture.md)
+is the source document, and implementation changes go through ADRs).
 
 ```mermaid
 flowchart LR
@@ -39,7 +41,7 @@ flowchart LR
         V[Hosted vision model\noptional]
     end
     WEB -->|generated TS client| API
-    MOB -->|generated TS client| API
+    MOB -->|hand-written fetch client| API
     API --> DB
     API -->|presigned URLs| OBJ
     Q --> P1
@@ -56,7 +58,8 @@ Components in flow order:
 - **Mobile client** (`apps/mobile`): Expo SDK 57; guided two-shot capture, durable SQLite
   offline queue, tokens only in SecureStore.
 - **API**: ASP.NET Core minimal APIs under `/api/v1`, OpenAPI document generated from code
-  and committed; both clients consume the same generated TypeScript client
+  and committed; the web app consumes the generated TypeScript client while mobile ships a
+  hand-written fetch client, and response shapes are hand-mirrored on both sides
   ([ADR 0008](docs/adr/0008-rest-first.md)).
 - **PostgreSQL 18** with pgvector (embedding similarity) and pg_trgm (legend text search);
   row-level query filters scope every holding by user.
@@ -91,7 +94,7 @@ composition root. The dependency direction is enforced by an architecture test
 | A leaked refresh token must not become a skeleton key, on a phone | JWT access tokens (15 min) + opaque 256-bit single-use rotating refresh tokens, hashed at rest; reuse revokes the whole family; Argon2id passwords; mobile tokens in SecureStore only | Short access life bounds exposure; rotation + family revocation bounds refresh theft; no server-side sessions to hold | Theft of any consumed token is a revocation signal; the phone holds nothing long-lived and valuable | [ADR 0005](docs/adr/0005-auth-token-strategy.md) |
 | Coin photographs are heavy, sensitive (EXIF/GPS), and evidence | S3-compatible object storage, private bucket, presigned expiring URLs, mandatory server-side re-encode | No image bytes in Postgres; leaked URLs expire; the re-encode strips EXIF/GPS as a side effect | Photos are preserved for the audit trail (every IdentificationRun references its image keys) without becoming a leak surface | [ADR 0006](docs/adr/0006-object-storage-s3-compatible.md) |
 | The system, CI, and the 10-minute quickstart must run without provider keys | Deterministic offline evaluator behind the `IVisionIdentifier` port, pHash-matched against seeded reference images, every response labeled `provider: "offline"` | The brief bans silent stubs: faking model output would be dishonest | The entire pipeline (capture → retrieval → confirm → audit) is exercisable with zero keys and zero spend; a real key changes one config value | [ADR 0009](docs/adr/0009-offline-vision-evaluator.md), [docs/ai-pipeline.md](docs/ai-pipeline.md) |
-| Two clients (web, mobile) must not drift from the API | REST + OpenAPI document committed and diffed in CI; the TypeScript client both frontends consume is generated from it; no hand-written fetch calls | One contract, two clients, zero drift by construction | Breaking changes surface as reviewable diffs; the mobile app once crashed on exactly this class of drift | [ADR 0008](docs/adr/0008-rest-first.md) |
+| Two clients (web, mobile) must not drift from the API | REST + OpenAPI document committed and diffed in CI; the generated TypeScript client is diffed on regeneration. The web app consumes that client; mobile ships a hand-written fetch client with its own wire types | One diffable contract; the generated client makes request drift a build failure rather than a runtime surprise | The request side of the contract is gated end to end; response shapes are hand-mirrored in both clients until response schemas land, and the one real drift to date was exactly a response shape, caught in the mobile simulator run | [ADR 0008](docs/adr/0008-rest-first.md) |
 | A high-relief reverse proof is two facts, not one | Finish modeled as primary finish + independent attribute flags | A flat enum forces combined-value explosion or lossy single-choice storage | Combination coins are representable; the vision contract reports primary and flags separately, matching how the model perceives fields vs devices | [ADR 0003](docs/adr/0003-finish-modeling.md) |
 
 The row that shaped the product most: valuation rules first. The tempting path was a
@@ -149,7 +152,7 @@ anything requires updating that file in the same change.
 | ORM / DB | EF Core 10 + Npgsql · PostgreSQL 18 + pgvector + pg_trgm | Npgsql.EF 10.0.3 · pgvector/pg18 | Hybrid retrieval (vector + trigram) in one database; row-level holding filters |
 | Jobs | Quartz.NET | 3.19.1 (one step back from 3.20.0 deliberately) | Budget-derived polling interval, backfill, rollups; job-store caveat tracked in [open questions](docs/open-questions.md) |
 | Auth | Identity + Argon2id + JWT + rotating refresh | NetDevPack Argon2 7.1.2 | [ADR 0005](docs/adr/0005-auth-token-strategy.md) |
-| API docs | Microsoft.AspNetCore.OpenApi + Scalar at `/docs` | 10.0.11 · 2.17.1 | Swashbuckle deliberately absent ([ADR 0002](docs/adr/0002-backend-aspnet-core.md)) |
+| API docs | Microsoft.AspNetCore.OpenApi + Scalar at `/docs` | 10.0.11 · 2.17.2 | Swashbuckle deliberately absent ([ADR 0002](docs/adr/0002-backend-aspnet-core.md)) |
 | Storage | S3-compatible (MinIO local) | AWSSDK.S3 4.0.102.4 | Swappable endpoint (MinIO → S3 → Azure Blob) ([ADR 0006](docs/adr/0006-object-storage-s3-compatible.md)) |
 | Telemetry | OpenTelemetry → OTLP | 1.18.0 | Endpoint-configured, no vendor lock |
 | Web | Next.js App Router + React 19 + Tailwind v4 | 16.3.3 · 19.2.8 | Server Components by default |
@@ -173,9 +176,11 @@ anything requires updating that file in the same change.
   tests, which prove the row-level filter scopes every list and cursor page to the calling
   user and holds even with endpoint authorization removed.
 
-CI runs on every push: backend tests, web lint + build, the mobile strict typecheck (the
-contract-alignment canary that once caught real drift), and the OpenAPI diff: the document
-and the generated TypeScript client are regenerated and the build fails on drift.
+CI runs on every push: backend tests, web lint + build, the mobile strict typecheck (a
+compile-time check on the hand-written client's wire types), and the OpenAPI gate: the
+document and the generated TypeScript client are regenerated and the build fails on drift,
+which pins the request side of the contract. Response shapes are hand-mirrored in the
+clients until response schemas land (open questions).
 
 ## Security and operations
 

@@ -43,9 +43,9 @@ pnpm expo start
 
 Scan the QR code with Expo Go (Android) or the Camera app (iOS, with the
 Expo Go developer tool). The app talks to the API at the `apiBaseUrl` in
-`app.json` → `expo.extra` (default `http://localhost:5100`; for a real
-phone use your machine's LAN IP, e.g. `http://192.168.1.20:5100`, and
-restart `pnpm expo start`).
+`app.config.ts` → `expo.extra` (default `http://127.0.0.1:5100`; for a real
+phone use your machine's LAN IP, e.g. `http://192.168.1.20:5100`, set
+`API_BASE_URL` or `EXPO_PUBLIC_API_URL`, and restart `pnpm expo start`).
 
 ## Using the app
 
@@ -62,7 +62,9 @@ restart `pnpm expo start`).
   1. Frame the **obverse** in the circle overlay (glare/focus feedback at
      capture), retake if needed.
   2. Tap flip; photograph the **reverse**.
-  3. Review both, then submit. Job status polls automatically (2.5s).
+  3. Review both, then submit. Job status polls automatically with
+     exponential backoff: 2s initially, doubling to a 15s cap, giving up
+     after 12 polls.
   4. Confirm one of the top-5 candidates; your confirmation is training
      signal, written to the append-only audit run.
   When no vision key is configured, responses are labeled **offline
