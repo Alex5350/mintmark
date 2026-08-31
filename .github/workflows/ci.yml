@@ -113,7 +113,7 @@ jobs:
       - name: regenerate openapi document
         run: dotnet run --no-build --project src/Mintmark.Api -- --export-openapi
       - name: regenerate generated ts client
-        run: pnpm -C packages/api-client generate
+        run: pnpm -C ../packages/api-client generate
       - name: fail on drift
         # NOTE: git pathspecs resolve against the job's working-directory
         # (backend/), so the repo-root document needs the ../ prefix.
